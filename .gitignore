@@ -1,0 +1,55 @@
+
+# LaTeX intermediate and output files
+*.aux
+*.bbl
+*.blg
+*.brf
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+*.dvi
+*.ps
+*.eps
+*.pdf
+
+# Build directories
+_minted-* 
+_build/
+build/
+latex.out
+
+# Misc
+*.idx
+*.ilg
+*.ind
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.ist
+*.run.xml
+
+# Emacs/Vim swap files
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Ignore generated bibliography files
+*.bbl
+
+# Ignore latexmk dependency and lock files
+latexmkrc
+.latexmkrc
+
+# Ignore temporary files
+*.tmp
+*.bak
