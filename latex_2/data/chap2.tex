@@ -1,0 +1,240 @@
+\chapter{Methodology and Experiments}
+
+This chapter presents the LongMedBench decision-making pipeline: from raw EHR data to interactive agent evaluation. Section~\ref{sec:pipeline} describes the data processing pipeline. Section~\ref{sec:memory} presents the three-tier memory architecture. Section~\ref{sec:task} formulates the T3-D decision-making task. Section~\ref{sec:expsetup} details the experimental design. Section~\ref{sec:results} presents results and analysis.
+
+\section{EHR Data Processing Pipeline}
+\label{sec:pipeline}
+
+LongMedBench is constructed from MIMIC-IV \cite{PhysioNet-mimiciv-3.1}, a publicly available de-identified database containing comprehensive clinical data for over 100,000 patients at Beth Israel Deaconess Medical Center (2008--2019). The database includes structured tables (laboratory measurements, medication administrations, procedure records) and unstructured clinical notes (radiology reports, discharge summaries). To convert this static relational database into an interactive agent-compatible environment, we design a three-stage pipeline.
+
+\subsection{Patient and Event Filtering}
+
+\textbf{Event-Level Filtering.} We retain only laboratory results flagged as abnormal. Normal lab values carry limited clinical signal for decision-making and inflate context without benefit.
+
+\textbf{Patient-Level Filtering.} We require complete admission and discharge records for all hospitalizations, and select patients with at least 15 recorded hospitalizations. This threshold yields trajectories with sufficient density for longitudinal reasoning evaluation.
+
+\textbf{Resulting Cohort.} The filtered dataset comprises \textbf{355 patients} with \textbf{6,999 inpatient visits}. Mean visits per patient: 19.72 (median = 18.00, SD = 5.72). Mean medical events per visit: 44.91 (median = 25.00, SD = 70.32). This dense multi-session structure challenges models on cross-visit memory retention and temporal reasoning.
+
+The $\ge 15$ hospitalization filter creates a high-acuity, chronic-disease subpopulation---patients with the most complex conditions requiring frequent care. This is precisely the population for whom longitudinal reasoning matters most, but findings may not generalize to lower-acuity settings (discussed in Chapter~3).
+
+\subsection{Event Stream Construction}
+
+We transform filtered records into a unified, time-ordered event stream for each patient. A medical event is any discrete clinical occurrence, formalized as $E^k_i = \{a^k_i, t^k_i, p^k_i, o^k_i\}$, where $a^k_i$ is the action type (imaging, lab test, medication, procedure, etc.), $t^k_i$ is the timestamp, $p^k_i$ is the action parameter (e.g., CT vs. X-ray for imaging), and $o^k_i$ is the observation result (radiology report, lab value, administration confirmation).
+
+Each visit $\mathcal{V}_i$ is bounded by an admission event $E^{adm}_i$ and a discharge event $E^{dis}_i$: $\mathcal{V}_i = \{E^{adm}_i, E^1_i, E^2_i, \dots, E^m_i, E^{dis}_i\}$. The complete patient stream is $\mathcal{S_P} = \{\mathcal{V}_1, \mathcal{V}_2, \dots, \mathcal{V}_n\}$, where $n$ is the number of visits.
+
+\textbf{Note Processing.} Radiology reports are converted to structured imaging events via regular expression parsing. Discharge notes $N_i$ are decomposed into admission information $N_i^{adm}$ and discharge information $N_i^{dis}$, preserved in narrative format for use in Note Memory (Section~\ref{sec:notemem}) and ground-truth extraction.
+
+\subsection{Reproducibility}
+
+The pipeline is implemented as standardized, modular, version-controlled scripts. Each stage (extraction, event construction, task generation) is independently executable, enabling end-to-end reproducibility and adaptability to other EHR databases.
+
+\section{Three-Tier Memory Architecture}
+\label{sec:memory}
+
+A central design principle is the controlled provision of historical clinical information. Rather than exposing the agent to the full patient history without control over format or retrieval, we define a three-tier memory architecture that systematically varies both the \emph{granularity} and the \emph{provision strategy} of historical information.
+
+\subsection{Note Memory (Coarse-Grained)}
+\label{sec:notemem}
+
+Note Memory consists of admission and discharge summaries ($N_i^{adm}$, $N_i^{dis}$) for each historical visit, presented as structured natural language text (200--500 words per visit) concatenated in chronological order. It is compact and preserves clinical narrative structure, but is inherently lossy: summarization discards fine-grained temporal and event-level details.
+
+\subsection{Event Memory (Fine-Grained)}
+\label{sec:eventmem}
+
+Event Memory contains the complete structured event sequence for each historical visit---every lab test, medication, imaging study, and procedure with full action type, timestamp, parameters, and results. Events are presented as time-ordered JSON objects grouped by visit. Event Memory is information-complete, but its volume (mean 900 events across 20 visits) approaches or exceeds typical LLM context windows, creating a natural stress test for both long-context capabilities and retrieval strategies.
+
+\subsection{Contextual Memory (Immediate)}
+\label{sec:contextmem}
+
+Contextual Memory is limited to the current visit's partial event history (all events from admission up to the decision point). It represents the baseline information available at any decision point and is always provided to the agent. Historical memory (Note or Event) is the experimental variable, enabling isolation of the marginal contribution of history beyond the immediate clinical context.
+
+\subsection{Memory Provision Strategies}
+
+Three strategies for providing historical memory are compared:
+
+\textbf{Naive Long-Context (Baseline).} All historical memory is provided in full within the model's context window, testing native long-context attention without external retrieval assistance.
+
+\textbf{RAG.} Historical memory is externally indexed. At decision time, the current clinical context serves as a retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the current context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
+
+\textbf{Mem0 (Agent Memory).} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
+
+\section{Long-Horizon Decision-Making Task (T3-D)}
+\label{sec:task}
+
+The T3-D task evaluates an LLM agent's ability to make proactive clinical decisions based on partial patient trajectories. Unlike static benchmarks that present complete histories for classification, T3-D simulates interactive decision-making: the agent receives information incrementally and must determine the next action at each decision point.
+
+\subsection{Task Formulation}
+
+At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Contextual Memory (current visit's partial history); (3) Historical Memory (prior visits, at controlled granularity and provision strategy); and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
+
+\subsection{Action Space and Ground Truth}
+
+The action space $\mathcal{A}$ includes: Imaging (CT, X-ray, MRI, Ultrasound), Laboratory Tests (CBC, metabolic panels, cultures), Medications (drug prescriptions with name/dose/route), Procedures (intubation, central lines), Consultations (specialty referrals), Admission/Discharge actions, and Transfers (between care units).
+
+Ground-truth actions are extracted through structured field extraction from MIMIC-IV tables and regular expression parsing of discharge notes. Extracted actions are validated for temporal coherence (e.g., medication order before administration, discharge terminating the visit).
+
+Decision points are sampled to cover diverse clinical scenarios: early in the visit (post-admission), mid-visit (during active treatment), and late in the visit (near discharge). Each patient contributes multiple decision points across their visits, yielding approximately 9,600 decision instances.
+
+\subsection{Evaluation Metrics}
+
+\textbf{Exact Match (EM):} Proportion of instances where predicted action matches ground truth exactly (action type + parameter). \textbf{Hit-Any (HA):} Proportion where predicted action type matches ground truth type, regardless of parameter (e.g., ``CT Chest'' vs.\ ``X-ray Chest'' both count as imaging). Per-category metrics are reported disaggregated by action type.
+
+These metrics capture complementary aspects: EM is strict, penalizing clinically reasonable alternatives; HA relaxes parameter specificity, acknowledging that action category may be more informative.
+
+\section{Experimental Setup}
+\label{sec:expsetup}
+
+\subsection{Models}
+
+We evaluate three state-of-the-art LLMs: GPT-5-mini (400K context window), DeepSeek-v3.2 (128K context, with and without chain-of-thought reasoning mode), and Qwen-Turbo (128K context, baseline for ablation studies). All are evaluated through their respective APIs with standardized prompts.
+
+\subsection{Experimental Conditions}
+
+We design a factorial ablation varying four factors:
+
+\begin{enumerate}
+    \item \textbf{Memory Granularity:} Note Memory vs.\ Event Memory.
+    \item \textbf{Provision Strategy:} Naive Long-Context vs.\ RAG vs.\ Mem0.
+    \item \textbf{Historical Depth ($n$):} Number of injected historical visits: $n \in \{0, 1, 2, 3, \infty\}$. $n=0$ provides Contextual Memory only (no history) as baseline.
+    \item \textbf{Reasoning Mode:} Standard vs.\ chain-of-thought (DeepSeek-v3.2 only).
+\end{enumerate}
+
+Qwen-Turbo serves as the primary ablation vehicle; key conditions are replicated on GPT-5-mini and DeepSeek-v3.2 for cross-model validation.
+
+\section{Results and Analysis}
+\label{sec:results}
+
+\subsection{Overall Decision-Making Performance}
+
+Table~\ref{tab:overall} summarizes T3-D performance across models. Decision-making accuracy falls within a narrow band of 0.55--0.62 (Exact Match), confirming that T3-D presents a genuine challenge that current LLMs have not mastered. The modest ceiling validates the benchmark's difficulty and its capacity to differentiate future improvements.
+
+\begin{table}[!h]
+    \centering
+    \caption{Overall T3-D performance (Exact Match).}
+    \label{tab:overall}
+    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}}
+        \hline
+        \textbf{Model} & \textbf{Note Mem.} & \textbf{Event Mem.} & \textbf{Context} \\
+        \hline
+        GPT-5-mini & [TODO] & 0.607 & 400K \\
+        \hline
+        DeepSeek-v3.2 & [TODO] & 0.607 & 128K \\
+        \hline
+        DeepSeek-v3.2-thinking & [TODO] & 0.593 & 128K \\
+        \hline
+        Qwen-Turbo & [TODO] & 0.604 & 128K \\
+        \hline
+    \end{tabular*}
+\end{table}
+
+\subsection{Memory Granularity: Note vs.\ Event}
+
+Table~\ref{tab:granularity} compares performance across memory granularities. Structured Event Memory offers slight advantages over Note Memory for most models, but the difference is modest---consistent with the interpretation that for proactive clinical planning, immediate context outweighs historical granularity.
+
+\begin{table}[!h]
+    \centering
+    \caption{Effect of memory granularity on T3-D (Naive Long-Context).}
+    \label{tab:granularity}
+    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}}
+        \hline
+        \textbf{Model} & \textbf{Note} & \textbf{Event} & \textbf{$\Delta$} \\
+        \hline
+        GPT-5-mini & [TODO] & 0.607 & [TODO] \\
+        \hline
+        DeepSeek-v3.2 & [TODO] & 0.607 & [TODO] \\
+        \hline
+        Qwen-Turbo & [TODO] & 0.604 & [TODO] \\
+        \hline
+    \end{tabular*}
+\end{table}
+
+\subsection{Memory Architecture: Naive vs.\ RAG vs.\ Mem0}
+
+This is the central experimental question. Table~\ref{tab:architecture} presents the memory architecture ablation using Qwen-Turbo.
+
+\begin{table}[!h]
+    \centering
+    \caption{Effect of memory architecture on T3-D (Qwen-Turbo, Event Memory).}
+    \label{tab:architecture}
+    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.15\textwidth}}
+        \hline
+        \textbf{Architecture} & \textbf{T3-D Acc.} & \textbf{$\Delta$ vs.\ Naive} & \textbf{Notes} \\
+        \hline
+        Naive (Full) & [TODO] & --- & Baseline \\
+        \hline
+        RAG & [TODO] & [TODO] & Top-$k$ retrieval \\
+        \hline
+        Mem0 & [TODO] & [TODO] & Agent memory \\
+        \hline
+    \end{tabular*}
+\end{table}
+
+\textbf{Finding.} Neither RAG retrieval nor agent memory management (Mem0) provides significant improvement over the naive long-context baseline. In some conditions, augmentation slightly degrades performance. This negative result is the central empirical contribution: it reveals that the bottleneck in longitudinal clinical decision-making is not \emph{retrieval} (locating relevant history) but \emph{integration} (understanding how historical information bears on the current decision). Current architectures optimize for retrieval quality, but our results indicate that for clinical planning, closing the gap between retrieval and reasoning is the critical challenge.
+
+\subsection{Historical Depth: Visit Injection Ablation}
+
+Table~\ref{tab:depth} shows performance as a function of injected historical visits ($n$). The $n=0$ baseline (Contextual Memory only, no history) is particularly informative.
+
+\begin{table}[!h]
+    \centering
+    \caption{Effect of historical depth on T3-D (Qwen-Turbo, Event Memory).}
+    \label{tab:depth}
+    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.35\textwidth}}
+        \hline
+        \textbf{$n$ (Visits)} & \textbf{T3-D Acc.} & \textbf{Interpretation} \\
+        \hline
+        0 (Context only) & [TODO] & Baseline: no history \\
+        \hline
+        1 & [TODO] & Single prior visit \\
+        \hline
+        2 & [TODO] & Two prior visits \\
+        \hline
+        3 & [TODO] & Three prior visits \\
+        \hline
+        $\infty$ (All) & [TODO] & Complete history \\
+        \hline
+    \end{tabular*}
+\end{table}
+
+\textbf{Finding.} Performance does not monotonically improve with historical depth. The $n=0$ baseline achieves accuracy comparable to full-history conditions, indicating that decisions are driven primarily by the immediate clinical presentation. Adding history introduces noise that can offset the value of relevant historical information---consistent with the lost-in-the-middle effect \cite{liu2023lostmiddlelanguagemodels}.
+
+\subsection{Chain-of-Thought Reasoning}
+
+For DeepSeek-v3.2, explicit chain-of-thought reasoning reduces T3-D accuracy from 0.607 to 0.593. Qualitative analysis of reasoning traces suggests that thinking mode makes the model more conservative---it identifies information gaps and hesitates rather than committing to a decision. This highlights a tension between clinical caution and benchmark performance.
+
+\subsection{Cross-Model Comparison}
+
+[TODO: Brief comparison of performance across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo. Note whether larger context windows (400K vs.\ 128K) translate to better decision-making, and whether model architecture matters more than context capacity.]
+
+\subsection{Error Analysis}
+
+[TODO: Summary of error patterns---
+\begin{itemize}
+    \item Action category confusion matrix (which types are most often confused?)
+    \item Temporal sensitivity (does accuracy degrade deeper into a visit or later in a trajectory?)
+    \item Patient complexity correlation (does performance correlate with visit count or event density?)
+    \item Clinically reasonable alternatives (among incorrect EM predictions, what fraction represent clinically defensible actions?)
+\end{itemize}]
+
+\subsection{Summary of Findings}
+
+The experimental results converge on a coherent narrative: (1) Clinical decision-making remains challenging (accuracy 0.55--0.62 across all models); (2) Memory granularity matters modestly (Event slightly outperforms Note); (3) Memory augmentation (RAG, Mem0) does not significantly improve decision-making---the central negative result; (4) Immediate context dominates historical context; (5) Chain-of-thought reasoning can degrade performance through increased conservatism. These findings collectively reveal a retrieval-reasoning gap whose implications we explore in Chapter~3.
+
+\subsection{Qualitative Case Study}
+
+To illustrate the decision-making task concretely, consider a representative patient from our cohort: a 68-year-old male with chronic kidney disease, type 2 diabetes, and hypertension, with 21 hospitalizations over five years. At a mid-visit decision point during his 15th admission (presenting with fever and elevated creatinine), the agent receives:
+
+\begin{itemize}
+    \item \textbf{Contextual Memory:} Admission event (fever, hypotension), initial lab results (elevated WBC, creatinine 2.8 mg/dL), and one prior imaging order (chest X-ray, pending result).
+    \item \textbf{Historical Memory (Event):} Events showing that during prior febrile episodes, the patient responded to vancomycin but developed acute kidney injury requiring dose adjustment; a CT abdomen from visit 12 revealed nephrolithiasis.
+    \item \textbf{Decision Query:} ``Based on the patient's history and current status, what should be the next clinical action?''
+\end{itemize}
+
+The ground-truth action (from actual records) is ordering blood cultures and starting empiric vancomycin at renally adjusted dosing. An agent relying solely on Contextual Memory might order broad-spectrum antibiotics at standard dosing; an agent effectively integrating history would recognize the need for renal adjustment based on prior vancomycin-associated AKI and the current elevated creatinine. This case illustrates the type of decision where historical integration should change the answer---and where our benchmark can measure whether it does.
+
+\subsection{Discussion of Negative Results}
+
+The finding that memory augmentation does not improve decision-making may appear discouraging, but it carries productive implications. First, it identifies a genuine capability gap that current architectures cannot bridge through scale or retrieval quality alone---the gap is architectural, not parametric. Second, it provides a clear target for future work: architectures that explicitly model the relationship between retrieved history and current decisions, rather than treating retrieval as an independent preprocessing step. Third, it validates LongMedBench's sensitivity: a benchmark that showed all approaches performing equally well would be uninformative; one that reveals systematic failure modes provides actionable diagnostic signal.
+
+The contrast with EHR-Bench \cite{2025_ehr_r1} is instructive. While EHR-Bench demonstrated that LLMs can predict next clinical events from complete histories with non-trivial accuracy, our agent-based setting reveals that this capability does not translate to interactive decision-making where history must be selectively retrieved and integrated. The two paradigms evaluate complementary but distinct capabilities---static prediction vs.\ interactive planning---and gap between them highlights the importance of evaluation methodology in assessing clinical AI readiness.

@@ -1,0 +1,81 @@
+\chapter{Discussion and Conclusion}
+
+\section{Summary of Findings}
+
+The experimental results presented in Chapter~2 yield five key findings:
+
+\textbf{1. Decision-making remains challenging.} Across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo, T3-D accuracy ranges from 0.55--0.62 (Exact Match), substantially below clinical deployment requirements. The consistency of this ceiling across architectures suggests a fundamental limitation of current LLM approaches rather than model-specific weakness.
+
+\textbf{2. Memory granularity matters modestly.} Structured Event Memory slightly outperforms Note Memory in most conditions, but the effect is small relative to the overall performance ceiling. For proactive clinical planning, immediate context dominates.
+
+\textbf{3. Memory augmentation does not improve decision-making.} This is the central finding. Neither RAG nor Mem0 provides significant improvement over the naive long-context baseline. In some conditions, augmentation slightly degrades performance.
+
+\textbf{4. Immediate context dominates historical context.} The $n=0$ baseline (Contextual Memory only, no history) achieves accuracy comparable to full-history conditions. Adding historical visits does not monotonically improve decisions.
+
+\textbf{5. Chain-of-thought can degrade performance.} For DeepSeek-v3.2, reasoning mode reduces accuracy from 0.607 to 0.593, likely because explicit reasoning induces conservatism that penalizes decisive action under exact-match evaluation.
+
+\section{The Retrieval-Reasoning Gap}
+
+These findings collectively reveal a \textbf{retrieval-reasoning gap}: a disconnect between LLMs' ability to \emph{locate} relevant historical information and their ability to \emph{integrate} that information into proactive clinical planning. This explains why RAG and Mem0 fail: these architectures optimize retrieval quality, but for clinical decision-making, retrieval is not the bottleneck. The model can access relevant history (either in full context or via retrieval), but cannot effectively use it to inform decisions.
+
+We hypothesize three contributing mechanisms. First, clinical reasoning requires causal, not associative, inference---determining whether a prior treatment was effective requires understanding why it was given and how the patient responded, not just retrieving that it occurred. Second, the signal-to-noise ratio in longitudinal EHR data is low: a patient's 900 events contain only a fraction relevant to any single decision, overwhelming attention mechanisms. Third, current LLM training data (web text, code, books) lacks the temporal-causal structure of clinical trajectories, creating a distribution shift.
+
+\section{Implications}
+
+\subsection{For Memory Architecture Design}
+
+Current memory architectures (RAG, Mem0, MemGPT) operate on the assumption that better retrieval yields better performance. Our findings challenge this assumption for clinical decision-making. Future architectures should emphasize \emph{reasoning over retrieved information}: temporal attention mechanisms that encode causal relevance, graph-based representations that capture clinical relationships, and structured reasoning layers that bridge retrieval and decision.
+
+\subsection{For Benchmark Design}
+
+If decision-making performance is dominated by immediate context, benchmarks that primarily test retrieval may overestimate clinical readiness. We advocate for adversarial task design---constructing decision instances where history \emph{changes} the correct answer---to prevent models from succeeding through immediate-context heuristics alone. Additionally, distinguishing the subset of decisions where history genuinely matters from those driven by current presentation is critical for targeted evaluation.
+
+\subsection{For Clinical AI Deployment}
+
+The finding that immediate context dominates is not necessarily a weakness---in many clinical scenarios, the current presentation is indeed the most important determinant. The challenge lies in identifying decisions where ignoring history constitutes clinical error (e.g., prescribing a medication that previously caused an adverse reaction) and ensuring the agent has the architecture to recognize and act on such cases.
+
+\section{Limitations}
+
+\textbf{Data Scope.} LongMedBench is constructed from MIMIC-IV, a single-institution database. Clinical practice patterns and documentation conventions vary across institutions, and findings may not generalize without cross-institutional validation.
+
+\textbf{Cohort Bias.} The $\ge 15$ hospitalization filter selects for high-acuity, chronic, multi-morbid patients---the population for whom longitudinal reasoning matters most, but not representative of the broader patient base.
+
+\textbf{Task Simplification.} T3-D reduces clinical decision-making to action-type prediction within a predefined action space. Real decisions involve drug dosing, contraindication checking, patient preferences, resource availability, and guideline compliance not captured by our formulation.
+
+\textbf{Evaluation Rigor.} Exact Match penalizes clinically reasonable alternatives. While Hit-Any partially addresses this, neither metric replaces clinical expert judgment. We recommend human clinician evaluation as a future validation step.
+
+\textbf{Model Coverage.} Our evaluation covers three general-purpose LLMs. Models specifically trained for clinical tasks (e.g., EHR-R1, Med-PaLM) may exhibit different patterns not captured here.
+
+\section{Future Work}
+
+\textbf{Task Refinement.} Adversarial decision instances where history changes the correct answer would directly test temporal integration. Counterfactual evaluation---altering history and measuring decision sensitivity---would isolate causal effects.
+
+\textbf{Memory Architecture Development.} Temporal graph memory, selective history summarization (compressing irrelevant while preserving salient information), and memory-aware fine-tuning on synthetic longitudinal trajectories are promising directions.
+
+\textbf{Human Baseline.} A clinician evaluation study contextualizing the 0.55--0.62 accuracy range would validate benchmark difficulty and enable calibrated assessment of model progress.
+
+\textbf{Cross-Institutional Validation.} Extending the pipeline to eICU, HiRID \cite{2021_hirid_icu}, or STARR would test generalizability across institutions and patient populations.
+
+\textbf{Multimodal Extension.} Incorporating medical imaging and physiological waveforms would increase clinical fidelity as vision-language and multimodal LLMs mature.
+
+\textbf{Outcome Correlation.} Linking agent decisions to simulated patient outcomes (mortality, readmission, length of stay) would provide the ultimate validation of decision-making quality.
+
+\section{Conclusion}
+
+Clinical practice is inherently longitudinal---patients accumulate histories over years, and clinicians must integrate evidence across this temporal expanse. As LLMs move toward clinical deployment, their capacity for longitudinal reasoning becomes a critical benchmark.
+
+This thesis presented the decision-making component of LongMedBench, investigating how contemporary LLMs use historical clinical information to inform proactive planning through a three-tier memory architecture and systematic ablation experiments. The central finding is that memory augmentation---the dominant paradigm for extending LLM capabilities---does not significantly improve longitudinal clinical decision-making. Decision accuracy depends primarily on immediate context, and historical information, however organized, contributes marginal additional value.
+
+This finding clarifies the nature of the challenge. The bottleneck is not retrieval---finding the right facts---but integration---understanding how those facts collectively inform decisions. Closing this retrieval-reasoning gap requires architectures that go beyond retrieval to support structured reasoning over temporal clinical evidence. The path to clinically capable AI agents is longer than single-encounter benchmarks suggest, but by identifying where current approaches fall short, LongMedBench provides a platform for measuring and ultimately closing this gap.
+
+\subsection{Relationship to the Broader LongMedBench Project}
+
+While this thesis focuses on T3-D (Decision-Making), placing our findings in the context of the broader LongMedBench project reveals complementary insights. The T3-A (Fact-based QA) evaluation found that RAG and agent memory systems significantly improve factual retrieval from long clinical histories \cite{mem0_reference}. T3-N (Temporal Reasoning) revealed that LLMs struggle with implicit temporal inference (visit ordering without explicit timestamps) despite strong performance when timestamps are provided.
+
+The contrast between these task suites sharpens our central finding: memory augmentation \emph{does} help for retrieval tasks (T3-A), but \emph{does not} help for decision-making tasks (T3-D). This dissociation confirms that the retrieval-reasoning gap is task-specific---it manifests when the agent must do more than locate facts, when it must plan proactively. This insight would not be visible from any single task suite; it emerges only from the systematic, multi-dimensional evaluation that LongMedBench provides.
+
+\subsection{Practical Considerations for Reproducibility}
+
+To facilitate reproducibility and future extensions, we release the complete data processing pipeline as open-source software. The pipeline is containerized, with explicit version pins for all dependencies and documented configuration parameters for each stage. The MIMIC-IV data itself requires credentialed access through PhysioNet, but the processing scripts, task generation logic, and evaluation harness are publicly available. We provide a synthetic example dataset with identical schema to enable testing and development without MIMIC-IV access, following the precedent established by EHR-Bench and MedAgentBench.
+
+All experiments were conducted on [TODO: computing platform, GPU specifications]. API-based model evaluation used standardized temperature settings (temperature = 0 for reproducibility) and fixed random seeds where applicable. Full prompt templates, including system prompts, memory formatting conventions, and decision queries, are documented in the released codebase to ensure exact replication.

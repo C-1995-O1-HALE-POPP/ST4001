@@ -1,0 +1,55 @@
+\contentsline {chapter}{\numberline {1}Introduction}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}The Long-Horizon Challenge in Clinical Decision-Making}{2}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Related Work}{3}{section.1.2}%
+\contentsline {subsection}{\numberline {1.2.1}Medical Benchmarks: From Static QA to Interactive Agents}{3}{subsection.1.2.1}%
+\contentsline {subsection}{\numberline {1.2.2}Three Gaps in Current Benchmarks}{3}{subsection.1.2.2}%
+\contentsline {subsection}{\numberline {1.2.3}The EHR-Bench Precedent}{4}{subsection.1.2.3}%
+\contentsline {subsection}{\numberline {1.2.4}Memory-Augmented Architectures}{4}{subsection.1.2.4}%
+\contentsline {subsection}{\numberline {1.2.5}Systematic Comparison of Medical Benchmarks}{5}{subsection.1.2.5}%
+\contentsline {section}{\numberline {1.3}Research Questions}{5}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Contributions}{6}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Scope and Structure}{7}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Methodology and Experiments}{8}{chapter.2}%
+\contentsline {section}{\numberline {2.1}EHR Data Processing Pipeline}{8}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}Patient and Event Filtering}{8}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {2.1.2}Event Stream Construction}{9}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {2.1.3}Reproducibility}{9}{subsection.2.1.3}%
+\contentsline {section}{\numberline {2.2}Three-Tier Memory Architecture}{9}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Note Memory (Coarse-Grained)}{9}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Event Memory (Fine-Grained)}{10}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Contextual Memory (Immediate)}{10}{subsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.2.4}Memory Provision Strategies}{10}{subsection.2.2.4}%
+\contentsline {section}{\numberline {2.3}Long-Horizon Decision-Making Task (T3-D)}{11}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Task Formulation}{11}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Action Space and Ground Truth}{11}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Evaluation Metrics}{12}{subsection.2.3.3}%
+\contentsline {section}{\numberline {2.4}Experimental Setup}{12}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Models}{12}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Experimental Conditions}{12}{subsection.2.4.2}%
+\contentsline {section}{\numberline {2.5}Results and Analysis}{13}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Overall Decision-Making Performance}{13}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {2.5.2}Memory Granularity: Note vs.\ Event}{13}{subsection.2.5.2}%
+\contentsline {subsection}{\numberline {2.5.3}Memory Architecture: Naive vs.\ RAG vs.\ Mem0}{13}{subsection.2.5.3}%
+\contentsline {subsection}{\numberline {2.5.4}Historical Depth: Visit Injection Ablation}{14}{subsection.2.5.4}%
+\contentsline {subsection}{\numberline {2.5.5}Chain-of-Thought Reasoning}{14}{subsection.2.5.5}%
+\contentsline {subsection}{\numberline {2.5.6}Cross-Model Comparison}{15}{subsection.2.5.6}%
+\contentsline {subsection}{\numberline {2.5.7}Error Analysis}{15}{subsection.2.5.7}%
+\contentsline {subsection}{\numberline {2.5.8}Summary of Findings}{15}{subsection.2.5.8}%
+\contentsline {subsection}{\numberline {2.5.9}Qualitative Case Study}{16}{subsection.2.5.9}%
+\contentsline {subsection}{\numberline {2.5.10}Discussion of Negative Results}{16}{subsection.2.5.10}%
+\contentsline {chapter}{\numberline {3}Discussion and Conclusion}{18}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Summary of Findings}{18}{section.3.1}%
+\contentsline {section}{\numberline {3.2}The Retrieval-Reasoning Gap}{18}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Implications}{19}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}For Memory Architecture Design}{19}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}For Benchmark Design}{19}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}For Clinical AI Deployment}{19}{subsection.3.3.3}%
+\contentsline {section}{\numberline {3.4}Limitations}{20}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Future Work}{20}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Conclusion}{21}{section.3.6}%
+\contentsline {subsection}{\numberline {3.6.1}Relationship to the Broader LongMedBench Project}{22}{subsection.3.6.1}%
+\contentsline {subsection}{\numberline {3.6.2}Practical Considerations for Reproducibility}{22}{subsection.3.6.2}%
+\contentsline {chapter}{References}{23}{subsection.3.6.2}%
+\contentsline {chapter}{Appendix}{25}{chapter*.7}%
+\contentsline {chapter}{Author's Biography}{26}{chapter*.7}%
+\contentsfinish 

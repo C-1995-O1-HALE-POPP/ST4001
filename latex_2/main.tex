@@ -1,0 +1,46 @@
+% 编译命令：xelatex main.tex
+
+\documentclass[filled]{zjuthesis}% 填入filled参数，自动填写Checklist表格相关信息
+\begin{document}
+
+\zju{
+    title = {LongMedBench: Benchmarking Memory-Augmented Medical Agents for Long-Horizon Clinical Decision-Making},
+    name = {Zihan Xu},
+    id = {3220110781},
+    supervisor = {Zuozhu Liu},
+    class of year = {Class of 2026},
+    major = {Computer Engineering},
+    submission date = {May 2026},
+    Academic title = {Assistant Professor},
+}
+
+\maketitle
+
+\frontmatter
+
+\Checklist
+\Commitment
+
+{\doublespacing
+    \include{data/ack}
+    \include{data/abstract}}
+
+\tableofcontents
+
+\mainmatter
+
+\include{data/chap1}
+\include{data/chap2}
+\include{data/chap3}
+
+% 使用bib方式插入参考文献，
+\include{data/ref-bib}
+
+% 直接插入参考文献，
+% \include{data/ref}
+
+\include{data/appendix}
+\include{data/biography}
+
+
+\end{document}
