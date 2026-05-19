@@ -1,0 +1,51 @@
+\centerline{\xiaoyi\bf List of Symbols and Abbreviations}
+\addcontentsline{toc}{chapter}{List of Symbols and Abbreviations}
+
+\vspace{1em}
+
+{\fontsize{9}{11}\selectfont
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular*}{\textwidth}{p{0.24\textwidth}@{\extracolsep{\fill}}p{0.68\textwidth}}
+    \toprule
+    \textbf{Symbol} & \textbf{Meaning} \\
+    \midrule
+    $N_i$ & Discharge note for visit $i$. \\
+    $N_i^{adm}$, $N_i^{dis}$ & Admission and discharge information decomposed from $N_i$. \\
+    $E_i^k$ & The $k_\text{th}$ clinical event in visit $\mathcal{V}_i$. \\
+    $E_i^{adm}$, $E_i^{dis}$ & Admission and discharge boundary events for visit $i$. \\
+    $a_i^k$, $t_i^k$, $p_i^k$, $o_i^k$ & Action type, timestamp, action parameter, and observation result of event $E_i^k$. \\
+    $\mathcal{A}$ & Clinical action space used for event action types. \\
+    $\mathcal{V}_i$ & Visit $i$, represented as an ordered sequence from admission to discharge. \\
+    $\mathcal{S_P}$ & Complete patient stream, consisting of ordered visits $\{\mathcal{V}_1,\dots,\mathcal{V}_n\}$. \\
+    $\mathcal{M}^{(i,j)}_N$ & Note Memory from historical visits $i$ through $j-1$. \\
+    $\mathcal{M}^{(i,j)}_E$ & Event Memory containing clinical events from historical visits $i$ through $j-1$. \\
+    $\mathcal{M}_C^{(j,T)}$ & Context Memory for visit $j$ up to timestamp $T$. \\
+    $S$ & Working context available before the sampled target event. \\
+    $M$ & Long-horizon memory supplied to the agent. \\
+    $Q$ & Multiple-choice query presented to the agent. \\
+    $\hat{y}$ & Agent output answer. \\
+    $E_i^{GT}$, $t_i^{GT}$ & Ground-truth target event and its timestamp. \\
+    $\mathcal{E}_{24h}$ & Events occurring within the 24-hour window after $t_i^{GT}$. \\
+    $\lambda$ & Time-decay rate, defined as $\ln(100)/24$. \\
+    \bottomrule
+\end{tabular*}}
+
+\vspace{1.2em}
+
+{\fontsize{9}{11}\selectfont
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular*}{\textwidth}{p{0.24\textwidth}@{\extracolsep{\fill}}p{0.68\textwidth}}
+    \toprule
+    \textbf{Abbreviation} & \textbf{Meaning} \\
+    \midrule
+    EHR & Electronic health record. \\
+    ICU & Intensive care unit. \\
+    JSON & JavaScript Object Notation. \\
+    LLM & Large language model. \\
+    MIMIC-IV & Medical Information Mart for Intensive Care IV. \\
+    RAG & Retrieval-augmented generation. \\
+    Mem0 & Agent memory framework used as a memory provision strategy. \\
+    \bottomrule
+\end{tabular*}}
