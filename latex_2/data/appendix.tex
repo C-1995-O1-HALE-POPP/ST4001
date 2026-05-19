@@ -1,5 +1,100 @@
 \centerline{\xiaoyi\bf Appendix}
 \addcontentsline{toc}{chapter}{Appendix}
-\centerline{\fontsize{11pt}{13.2pt}\selectfont(if applicable)}
 
-\centerline{You can attach your publication, patent document, etc here.}
+\section*{A. LongMedBench Pipeline Implementation Details}
+\addcontentsline{toc}{section}{A. LongMedBench Pipeline Implementation Details}
+
+This appendix documents the implementation pipeline used to construct the decision-making benchmark and run agent evaluation. The description is based on the project source tree under \texttt{/data/lab/LongMedBench}, especially \texttt{EHR\_pipeline/}, \texttt{tasks/agentic\_decision/}, \texttt{agents/}, and \texttt{config.py}.
+
+\subsection*{A.1 Data and Task Pipeline}
+\addcontentsline{toc}{subsection}{A.1 Data and Task Pipeline}
+
+\begin{table}[!h]
+    \centering
+    \caption{Pipeline stages for constructing LongMedBench decision-making data.}
+    \label{tab:appendix_pipeline_stages}
+    {\fontsize{8}{9.2}\selectfont
+    \setlength{\tabcolsep}{3pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular*}{\textwidth}{p{0.18\textwidth}@{\extracolsep{\fill}}p{0.28\textwidth}p{0.44\textwidth}}
+        \toprule
+        \textbf{Stage} & \textbf{Source files} & \textbf{Output and role} \\
+        \midrule
+        Raw MIMIC-IV tables & \texttt{raw\_data/hosp}, \texttt{raw\_data/note}, \texttt{raw\_data/icu} & Admissions, patients, diagnoses, medications, procedures, microbiology, radiology reports, discharge notes, laboratory records, and ICU chart events provide the raw clinical substrate. \\
+        Patient and event filtering & \texttt{patients\_extract.py}, \texttt{events\_preprocess.py} & Patients are retained only when all admissions have matched discharge notes and at least \texttt{MIN\_VISITS=15} hospitalizations. Event preprocessing keeps abnormal ICU warning events and abnormal laboratory rows while preserving other structured event types downstream. \\
+        Event stream construction & \texttt{convert.py}, event extraction scripts & Each visit is converted into a chronologically ordered stream of typed clinical events, with admission and discharge boundaries, structured actions, timestamps, and event arguments. \\
+        Memory dataset generation & \texttt{note\_extract.py}, \texttt{note\_slicing.py}, \texttt{build\_context.py} & Discharge notes are sliced into admission and discharge fields, while structured events are serialized into context messages. These artifacts instantiate Note Memory, Event Memory, and Context Memory. \\
+        Question generation & \texttt{generate\_questions.py}, \texttt{tools.py} & For each visit prefix, the code constructs Next Action Prediction, Argument Prediction, and Discharge Decision questions from future events and discharge timing. \\
+        \bottomrule
+    \end{tabular*}}
+\end{table}
+
+The benchmark output uses a patient-centered directory layout. The source documentation gives the following structure:
+\begin{verbatim}
+bench_data/
+  patient_index.csv
+  patients/
+    P000123/
+      patient.json
+      visits/
+        V1.json
+        V2.json
+        V3.json
+\end{verbatim}
+The configuration sets \texttt{BENCH\_DATA\_DIR} to \texttt{./bench\_data}, stores patient files under \texttt{bench\_data/patients}, and uses \texttt{MAX\_WORKERS=16} with \texttt{MIN\_VISITS=15}. In the current benchmark cohort this threshold yields 355 patients. Raising the threshold to about 20 visits retains only roughly 100 patients, whereas lowering it to about 10 visits shortens the interaction horizon and weakens the longitudinal reasoning setting.
+
+\subsection*{A.2 Agent Prompt and Memory Interfaces}
+\addcontentsline{toc}{subsection}{A.2 Agent Prompt and Memory Interfaces}
+
+The agent prompt exposes a small action space: \texttt{ask\_question}, \texttt{order\_labs}, \texttt{order\_microbiology}, \texttt{order\_imaging}, \texttt{perform\_procedure}, \texttt{medication}, and \texttt{discharge}. The memory labels in \texttt{prompts.py} map \texttt{discharge\_notes} to previous-visit discharge summaries, \texttt{event\_stream} to chronologically ordered previous-visit events, and \texttt{event\_context} to completed previous-visit context containing both notes and event streams.
+
+The direct question-answering system prompt is:
+\begin{verbatim}
+Now you are asked to answer agentic-desision questions without interacting with
+the environment; in that case, you should answer based on the admission record
+and NOT perform any environment actions.
+Your message MUST be a JSON object with keys: {reason, answer}.
+The answer should be a list containing only provided option from the question.
+You should return the raw text of the option(s) as the answer, not the label
+(e.g., "A", "B", ...). If multiple options are selected, include all of them
+in the list. The reason should be a brief explanation based on the context and
+admission history.
+\end{verbatim}
+For interactive use, the companion action prompt requires a JSON object with \texttt{reason}, \texttt{action}, and \texttt{args}; for benchmark question answering, the agent must not call environment actions and must instead return \texttt{reason} and \texttt{answer}. This distinction prevents the model from inventing new observations while still allowing it to use the serialized admission record and selected historical memory.
+
+\subsection*{A.3 Question Formats and Examples}
+\addcontentsline{toc}{subsection}{A.3 Question Formats and Examples}
+
+The decision-making task is decomposed into three question formats:
+
+\begin{itemize}
+    \item \textbf{Next Action Prediction.} The question stem is ``Which of the next step is most appropriate?'' Options are sampled from the seven-action space above, and the ground truth is the action type of the next clinical event.
+    \item \textbf{Argument Prediction.} The question asks for the argument of the next action, such as ``Which 2 medications are most appropriate next?'' or which imaging study is most appropriate. The ground truth is collected from matching future events in a 24-hour window.
+    \item \textbf{Discharge Decision.} The question is a binary Yes/No decision asking whether the patient should be discharged within 6 hours. Unlike argument prediction, this subtask does not use the 24-hour decay window.
+\end{itemize}
+
+For future-event argument questions, \texttt{generate\_questions.py} collects events in \((t,t+24h]\) and assigns an exponential decay weight. The helper in \texttt{tools.py} sets
+\[
+    \lambda = \frac{\ln(100)}{24}, \qquad w(\Delta t)=\exp(-\lambda \max(0,\Delta t)),
+\]
+so an event at the current time has weight 1.0 and an event 24 hours later has weight 0.01.
+
+Concrete evaluation examples illustrate the three formats. In a Next Action Prediction case for Patient~3, Visit~16, the correct answer is \texttt{medication}; using no injected history or two previous visits yields the correct answer, while five previous visits causes the model to switch to \texttt{order\_labs}. In an Argument Prediction case for Patient~1, Visit~20, the correct imaging answer is \texttt{XRAY abdomen}; retrieval-based agents instead select chest or head imaging after being distracted by superficially related historical symptoms. In a Discharge Decision example, the output is a single raw option such as \texttt{Yes} or \texttt{No}.
+
+The expected model output is a JSON object:
+\begin{verbatim}
+{"reason": "The patient has abnormal lab results...", "answer": ["order_labs"]}
+\end{verbatim}
+
+\subsection*{A.4 Evaluation Protocol}
+\addcontentsline{toc}{subsection}{A.4 Evaluation Protocol}
+
+The evaluator first parses the model reply as JSON. It accepts a plain JSON string or a fenced \texttt{json} block, extracts \texttt{reason} and \texttt{answer}, and normalizes the answer into a nonempty list of stripped strings. The weighted accuracy function then handles three ground-truth types:
+
+\begin{enumerate}
+    \item If the ground truth is a string, the prediction receives 1.0 when the string appears in the predicted list and 0.0 otherwise.
+    \item If the ground truth is a dictionary from option to weight, the score is the clipped sum of weights for matched predicted options.
+    \item If the ground truth is an unweighted list, the score is the fraction of ground-truth options recovered by the predicted set.
+\end{enumerate}
+
+The experimental configurations vary model family, memory type, and memory provision strategy. The reported runs include Qwen-Turbo, DeepSeek-v3.2, and GPT-5-mini, with Note Memory and Event Memory supplied through long-context prompting, retrieval augmentation, or Mem0-style memory. A separate agreement analysis filters out unanimous questions to assess discriminability. This analysis shows that Discharge Decision has only 8 discriminative cases out of 448 sampled questions (about 1.8\%), while Next Action Prediction is substantially more discriminative. This finding motivates interpreting binary discharge accuracy cautiously and emphasizing subtask-level reporting.

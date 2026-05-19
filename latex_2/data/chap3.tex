@@ -4,7 +4,7 @@
 
 The experimental results presented in Chapter~2 yield five key findings:
 
-\textbf{1. Decision-making remains challenging.} Across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo, T3-D accuracy ranges from 0.55--0.62 (Exact Match), substantially below clinical deployment requirements. The consistency of this ceiling across architectures suggests a fundamental limitation of current LLM approaches rather than model-specific weakness.
+\textbf{1. Decision-making remains challenging.} Across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo, average decision-making performance remains around 0.42--0.45, with substantial variation across subtasks. The Discharge Decision is the easiest subtask (roughly 0.58--0.63), while Next Action Prediction remains much lower (roughly 0.28--0.34). This gap shows that binary discharge judgment should not be treated as a proxy for full clinical decision-making ability.
 
 \textbf{2. Memory granularity matters modestly.} Structured Event Memory slightly outperforms Note Memory in most conditions, but the effect is small relative to the overall performance ceiling. For proactive clinical planning, immediate context dominates.
 
@@ -12,7 +12,7 @@ The experimental results presented in Chapter~2 yield five key findings:
 
 \textbf{4. Immediate context dominates historical context.} The $n=0$ baseline ($\mathcal{M}_C^{(j,T)}$ only, no history) achieves accuracy comparable to full-history conditions. Adding historical visits does not monotonically improve decisions.
 
-\textbf{5. Chain-of-thought can degrade performance.} For DeepSeek-v3.2, reasoning mode reduces accuracy from 0.607 to 0.593, likely because explicit reasoning induces conservatism that penalizes decisive action under exact-match evaluation.
+\textbf{5. Chain-of-thought can degrade performance.} For DeepSeek-v3.2 under Event Memory, reasoning mode reduces average decision-making performance from 0.439 to 0.419 and Discharge Decision accuracy from 0.607 to 0.593, likely because explicit reasoning induces conservatism that penalizes decisive action under multiple-choice evaluation.
 
 \section{The Retrieval-Reasoning Gap}
 
@@ -40,9 +40,11 @@ The finding that immediate context dominates is not necessarily a weakness---in 
 
 \textbf{Cohort Bias.} Several design decisions in our data pipeline shape the cohort composition. At the event level, we retain only laboratory results flagged as abnormal, following Hager et al.\ \cite{hager2024evaluation}, who demonstrated that presenting models with only abnormal lab values improved diagnostic performance in MIMIC-CDM by reducing noise from clinically uninformative normal results. This filtering makes the evaluation more clinically realistic---like human clinicians, the agent reasons from salient pathological signals---but may underrepresent the diagnostic challenge of distinguishing normal variation from true abnormality. At the patient level, we require each hospitalization to have a matched discharge note from the \texttt{note} module and select patients with $\ge 15$ hospitalizations. We chose this threshold after examining the trade-off between trajectory length and cohort size: lowering to $\ge 10$ visits yields trajectories too short to meaningfully evaluate cross-visit reasoning; raising to $\ge 20$ visits produces trajectories of over 20 steps but retains only approximately 100 patients, limiting statistical power. At $\ge 15$ visits, the resulting cohort of 355 patients compares favorably to sample sizes in other EHR-based agent benchmarks---MedAlign enrolled 276 patients \cite{2024_medalign} and DiReCT enrolled 511 patients \cite{wang2024direct}. Nevertheless, this threshold selects for high-acuity, chronic, multi-morbid patients---the population for whom longitudinal reasoning matters most---and findings may not generalize to lower-acuity settings or the broader patient base.
 
-\textbf{Task Simplification.} T3-D reduces clinical decision-making to action-type prediction within a predefined action space. Real decisions involve drug dosing, contraindication checking, patient preferences, resource availability, and guideline compliance not captured by our formulation.
+\textbf{Task Simplification.} The benchmark decomposes clinical decision-making into three multiple-choice subtasks: Next Action Prediction predicts the next event action type, Argument Prediction predicts the event argument, and Discharge Decision predicts six-hour discharge readiness. This decomposition improves diagnostic clarity but still simplifies real clinical decisions, which involve dosing, contraindication checking, patient preferences, resource availability, and guideline compliance not fully captured by our formulation.
 
-\textbf{Evaluation Rigor.} Exact Match penalizes clinically reasonable alternatives. While Hit-Any partially addresses this, neither metric replaces clinical expert judgment. We recommend human clinician evaluation as a future validation step.
+\textbf{Question Discriminability.} Not all evaluation questions are equally informative. An analysis of model agreement reveals that the Discharge Decision subtask has extremely few discriminative instances: only 8 out of 448 sampled questions (~1.8\%) produce disagreement across model configurations; the vast majority yield unanimous scores of 1.0 because patients are simply too early or too late for discharge. This inflates apparent Discharge Decision accuracy and limits its diagnostic value for comparing architectures. The Next Action Prediction subtask, by contrast, has approximately 70\% discriminative questions, making it the most informative component of the decision-making benchmark.
+
+\textbf{Evaluation Rigor.} Classification accuracy for Next Action Prediction and Discharge Decision and top-$k$ accuracy for Argument Prediction may penalize clinically reasonable alternatives. The time-decay mechanism partially addresses timing ambiguity for Next Action Prediction and Argument Prediction, but no automatic metric replaces clinical expert judgment. We recommend human clinician evaluation as a future validation step.
 
 \textbf{Model Coverage.} Our evaluation covers three general-purpose LLMs. Models specifically trained for clinical tasks (e.g., EHR-R1, Med-PaLM) may exhibit different patterns not captured here.
 
@@ -52,7 +54,7 @@ The finding that immediate context dominates is not necessarily a weakness---in 
 
 \textbf{Memory Architecture Development.} Temporal graph memory, selective history summarization (compressing irrelevant while preserving salient information), and memory-aware fine-tuning on synthetic longitudinal trajectories are promising directions.
 
-\textbf{Human Baseline.} A clinician evaluation study contextualizing the 0.55--0.62 accuracy range would validate benchmark difficulty and enable calibrated assessment of model progress.
+\textbf{Human Baseline.} A clinician evaluation study contextualizing both average decision-making performance (approximately 0.42--0.45) and subtask-specific performance would validate benchmark difficulty and enable calibrated assessment of model progress.
 
 \textbf{Cross-Institutional Validation.} Extending the pipeline to eICU, HiRID \cite{2021_hirid_icu}, or STARR would test generalizability across institutions and patient populations.
 
@@ -70,9 +72,9 @@ This finding clarifies the nature of the challenge. The bottleneck is not retrie
 
 \subsection{Relationship to the Broader LongMedBench Project}
 
-While this thesis focuses on T3-D (Decision-Making), placing our findings in the context of the broader LongMedBench project reveals complementary insights. The T3-A (Fact-based QA) evaluation found that RAG and agent memory systems significantly improve factual retrieval from long clinical histories \cite{mem0_reference}. T3-N (Temporal Reasoning) revealed that LLMs struggle with implicit temporal inference (visit ordering without explicit timestamps) despite strong performance when timestamps are provided.
+While this thesis focuses on the Long-Horizon Decision-Making task, placing our findings in the context of the broader LongMedBench project reveals complementary insights. LongMedBench also includes a Factual QA task, which tests factual retrieval from long clinical histories, and a Temporal Reasoning task, which tests event and visit ordering. These tasks help separate retrieval, temporal reconstruction, and decision-making.
 
-The contrast between these task suites sharpens our central finding: memory augmentation \emph{does} help for retrieval tasks (T3-A), but \emph{does not} help for decision-making tasks (T3-D). This dissociation confirms that the retrieval-reasoning gap is task-specific---it manifests when the agent must do more than locate facts, when it must plan proactively. This insight would not be visible from any single task suite; it emerges only from the systematic, multi-dimensional evaluation that LongMedBench provides.
+The contrast between these task suites sharpens our central finding: memory augmentation can help retrieval-oriented tasks, but it does not reliably improve decision-making across Next Action Prediction, Argument Prediction, and Discharge Decision subtasks. This dissociation confirms that the retrieval-reasoning gap is task-specific---it manifests when the agent must do more than locate facts, when it must convert longitudinal evidence into an actionable decision. This insight would not be visible from any single task suite; it emerges only from the systematic, multi-dimensional evaluation that LongMedBench provides.
 
 \subsection{Practical Considerations for Reproducibility}
 

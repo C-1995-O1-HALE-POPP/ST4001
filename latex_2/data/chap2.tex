@@ -65,42 +65,47 @@ Context Memory represents the baseline information always available to the agent
 \section{Long-Horizon Decision-Making Task}
 \label{sec:task}
 
-Unlike static benchmarks that present complete histories for classification, this task simulates interactive decision-making, where the agent receives information incrementally and must determine the next action at each decision point.
-
 \subsection{Task Formulation}
 
-At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Context Memory $\mathcal{M}_C^{(j,T)}$; (3) Historical Memory, i.e., $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$, at controlled granularity and provision strategy; and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
+For a sampled ground-truth event $E_i^{GT}$ in the current visit $\mathcal{V}_i$ with timestamp $t_i^{GT}$, the working context is defined as $S=\mathcal{M}_C^{(i,t_i^{GT})}$, containing all interaction history available before the target event. The long-horizon memory is denoted as $M=\mathcal{M}^{(1,n)}_E$ or $M=\mathcal{M}^{(1,n)}_N$, depending on whether Event Memory or Note Memory is injected. At inference time, the agent receives $S$, an instructional prompt, $M$, and a multiple-choice query $Q$, then outputs an answer $\hat{y}$. The three subtasks are defined as follows:
+\begin{itemize}
+    \item   \textbf{Next Action Prediction} asks the agent to predict the future event action type $a_i^{GT}$ from the clinical action space $\mathcal{A}$.
+    \item   \textbf{Argument Prediction} asks the agent to predict the target event argument $p_i^{GT}$, such as which laboratory panels or imaging modality are most appropriate.
+    \item   \textbf{Discharge Decision} asks whether the patient should be discharged within $6$ hours, yielding a binary Yes/No decision.
+\end{itemize}
 
-\subsection{Action Space and Ground Truth}
-
-The action space $\mathcal{A}$ includes: Imaging (CT, X-ray, MRI, Ultrasound), Laboratory Tests (CBC, metabolic panels, cultures), Medications (drug prescriptions with name/dose/route), Procedures (intubation, central lines), Consultations (specialty referrals), Admission/Discharge actions, and Transfers (between care units).
-
-Ground-truth actions are extracted through structured field extraction from MIMIC-IV tables and regular expression parsing of discharge notes. Extracted actions are validated for temporal coherence (e.g., medication order before administration, discharge terminating the visit).
-
-Decision points are sampled to cover diverse clinical scenarios: early in the visit (post-admission), mid-visit (during active treatment), and late in the visit (near discharge). Each patient contributes multiple decision points across their visits, yielding approximately 9,600 decision instances.
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{images/decision_making.pdf}
+    \caption{Illustration of the long-horizon decision-making task.}
+    \label{fig:decision_task}
+\end{figure}
 
 \subsection{Evaluation Metrics}
 
-\textbf{Exact Match (EM):} Proportion of instances where predicted action matches ground truth exactly (action type + parameter). \textbf{Hit-Any (HA):} Proportion where predicted action type matches ground truth type, regardless of parameter (e.g., ``CT Chest'' vs.\ ``X-ray Chest'' both count as imaging). Per-category metrics are reported disaggregated by action type.
-
-These metrics capture complementary aspects: EM is strict, penalizing clinically reasonable alternatives; HA relaxes parameter specificity, acknowledging that action category may be more informative.
+Next Action Prediction and Discharge Decision are evaluated by classification accuracy, while Argument Prediction is evaluated by top-$k$ accuracy because multiple arguments may be clinically appropriate. For Next Action Prediction and Argument Prediction, LongMedBench additionally applies a time-decay scoring mechanism to avoid over-penalizing decisions whose equivalent ground-truth action occurs shortly after the sampled timestamp. Let
+\[
+\mathcal{E}_{24h}=\{E_i^k \mid t_i^k\in[t_i^{GT},t_i^{GT}+24\mathrm{h}]\}.
+\]
+The score is
+\[
+S=\max_{E_i^k\in\mathcal{E}_{24h}}
+\exp\{-\lambda(t_i^k-t_i^{GT})\}\cdot\operatorname{Score}(y_i^k,\hat{y}),
+\quad
+\lambda=\frac{\ln(100)}{24},
+\]
+where the decay factor decreases from $1.0$ at the target timestamp to $0.01$ after $24$ hours, $\operatorname{Score}(\cdot)$ is classification accuracy for Next Action Prediction and top-$k$ accuracy for Argument Prediction. Discharge Decision is evaluated directly as binary classification accuracy.
 
 \section{Experimental Setup}
 \label{sec:expsetup}
 
 \subsection{Models}
 
-We evaluate three state-of-the-art LLMs: GPT-5-mini (400K context window), DeepSeek-v3.2 (128K context, with and without chain-of-thought reasoning mode), and Qwen-Turbo (128K context, baseline for ablation studies). All are evaluated through their respective APIs with standardized prompts.
+We evaluate three state-of-the-art LLMs: GPT-5-mini, DeepSeek-v3.2 (with and without reasoning mode), and Qwen-Turbo. All are evaluated through their respective APIs with standardized prompts and default model configurations.
 
 \subsection{Agent Architectures}
 
-Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent:
-
-\textbf{Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance.
-
-\textbf{RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
-
-\textbf{Mem0 (Agent Memory).} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
+Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent: \textbf{ (1) Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance. \textbf{ (2) RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval overcomes lost-in-the-middle effects. \textbf{(3) Agent Memory System.} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store to the agent. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
 
 \subsection{Experimental Conditions}
 
@@ -118,136 +123,91 @@ Qwen-Turbo serves as the primary ablation vehicle; key conditions are replicated
 \section{Results and Analysis}
 \label{sec:results}
 
-\subsection{Overall Decision-Making Performance}
+\subsection{Overall Decision-Making Performance Across Subtasks}
 
-Table~\ref{tab:overall} summarizes T3-D performance across models. Decision-making accuracy falls within a narrow band of 0.55--0.62 (Exact Match), confirming that T3-D presents a genuine challenge that current LLMs have not mastered. The modest ceiling validates the benchmark's difficulty and its capacity to differentiate future improvements.
-
-\begin{table}[!h]
-    \centering
-    \caption{Overall T3-D performance (Exact Match).}
-    \label{tab:overall}
-    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}}
-        \hline
-        \textbf{Model} & \textbf{Note Mem.} & \textbf{Event Mem.} & \textbf{Context} \\
-        \hline
-        GPT-5-mini & [TODO] & 0.607 & 400K \\
-        \hline
-        DeepSeek-v3.2 & [TODO] & 0.607 & 128K \\
-        \hline
-        DeepSeek-v3.2-thinking & [TODO] & 0.593 & 128K \\
-        \hline
-        Qwen-Turbo & [TODO] & 0.604 & 128K \\
-        \hline
-    \end{tabular*}
-\end{table}
-
-\subsection{Memory Granularity: Note vs.\ Event}
-
-Table~\ref{tab:granularity} compares performance across memory granularities. Structured Event Memory offers slight advantages over Note Memory for most models, but the difference is modest---consistent with the interpretation that for proactive clinical planning, immediate context outweighs historical granularity.
+Table~\ref{tab:decision_overall} summarizes long-horizon decision-making performance under the naive long-context setting. We report all three decision-making subtasks rather than treating Discharge Decision as the entire benchmark. Across models, Discharge Decision is consistently easier than Next Action Prediction, while Argument Prediction falls between them. This separation is important: high discharge-decision accuracy does not imply strong action planning or argument selection.
 
 \begin{table}[!h]
     \centering
-    \caption{Effect of memory granularity on T3-D (Naive Long-Context).}
-    \label{tab:granularity}
-    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}>{\centering\arraybackslash}m{0.2\textwidth}}
-        \hline
-        \textbf{Model} & \textbf{Note} & \textbf{Event} & \textbf{$\Delta$} \\
-        \hline
-        GPT-5-mini & [TODO] & 0.607 & [TODO] \\
-        \hline
-        DeepSeek-v3.2 & [TODO] & 0.607 & [TODO] \\
-        \hline
-        Qwen-Turbo & [TODO] & 0.604 & [TODO] \\
-        \hline
-    \end{tabular*}
+    \caption{Long-context LLM performance on long-horizon decision-making. Argument evaluates event argument prediction, Discharge evaluates six-hour discharge decision, and Action evaluates next action-type prediction.}
+    \label{tab:decision_overall}
+    {\fontsize{8}{9.2}\selectfont
+    \setlength{\tabcolsep}{2pt}
+    \renewcommand{\arraystretch}{1.05}
+    \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}cccccccc}
+        \toprule
+        & \multicolumn{4}{c}{\textbf{Note Memory}} & \multicolumn{4}{c}{\textbf{Event Memory}} \\
+        \cmidrule(lr){2-5}\cmidrule(lr){6-9}
+        \textbf{Model} & \textbf{Argument} & \textbf{Discharge} & \textbf{Action} & \textbf{Avg} & \textbf{Argument} & \textbf{Discharge} & \textbf{Action} & \textbf{Avg} \\
+        \midrule
+        Qwen-Turbo & 0.475 & 0.604 & 0.309 & 0.434 & 0.494 & 0.604 & 0.309 & 0.420 \\
+        DeepSeek-v3.2 & 0.478 & 0.607 & 0.278 & 0.422 & 0.493 & 0.607 & 0.304 & 0.439 \\
+        GPT-5-mini & 0.478 & 0.625 & 0.324 & 0.445 & 0.494 & 0.607 & 0.335 & 0.452 \\
+        DeepSeek-v3.2-thinking & 0.471 & 0.578 & 0.294 & 0.420 & 0.466 & 0.593 & 0.290 & 0.419 \\
+        \bottomrule
+    \end{tabular*}}
 \end{table}
 
-\subsection{Memory Architecture: Naive vs.\ RAG vs.\ Mem0}
+\subsection{Subtask-Level Patterns}
 
-This is the central experimental question. Table~\ref{tab:architecture} presents the memory architecture ablation using Qwen-Turbo.
+The most visible pattern is that Discharge Decision should not be interpreted as the whole decision-making task. It reaches approximately 0.58--0.63 because it is a binary discharge decision, whereas Next Action Prediction remains around 0.28--0.34 because selecting the next action type requires finer-grained clinical planning. Argument Prediction lies in the middle, reflecting the difficulty of selecting appropriate event arguments such as laboratory panels or imaging targets. Event Memory slightly improves Argument Prediction in most models, suggesting that fine-grained historical events help parameter selection, but the gains do not consistently translate into higher average decision-making performance.
+
+\subsection{Memory Ablations: Visit Injection and Retrieval Architectures}
+
+Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test historical depth and memory-augmentation strategies. The $n=0$ setting provides only Context Memory $\mathcal{M}_C^{(j,T)}$ and no injected historical memory. Increasing the number of injected visits does not produce monotonic gains, and retrieval-based architectures remain close to or below the naive baseline.
 
 \begin{table}[!h]
     \centering
-    \caption{Effect of memory architecture on T3-D (Qwen-Turbo, Event Memory).}
-    \label{tab:architecture}
-    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.15\textwidth}}
-        \hline
-        \textbf{Architecture} & \textbf{T3-D Acc.} & \textbf{$\Delta$ vs.\ Naive} & \textbf{Notes} \\
-        \hline
-        Naive (Full) & [TODO] & --- & Baseline \\
-        \hline
-        RAG & [TODO] & [TODO] & Top-$k$ retrieval \\
-        \hline
-        Mem0 & [TODO] & [TODO] & Agent memory \\
-        \hline
-    \end{tabular*}
+    \caption{Ablation study on long-horizon decision-making using Qwen-Turbo. The left block varies injected visit history; the right block compares retrieval/memory architectures.}
+    \label{tab:decision_ablation}
+    {\fontsize{8}{9.2}\selectfont
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.05}
+    \begin{tabular*}{\textwidth}{ll@{\extracolsep{\fill}}cccc}
+        \toprule
+        \textbf{Setting} & \textbf{Memory/Arch} & \textbf{Argument} & \textbf{Discharge} & \textbf{Action} & \textbf{Avg} \\
+        \midrule
+        \multicolumn{6}{l}{\textbf{Visit Injection}} \\
+        $n=0$ & -- & 0.49 & 0.61 & 0.32 & 0.45 \\
+        $n=2$ & Event & 0.49 & 0.60 & 0.32 & 0.44 \\
+        $n=5$ & Event & 0.48 & 0.60 & 0.31 & 0.43 \\
+        $n=2$ & Note & 0.48 & 0.60 & 0.32 & 0.44 \\
+        $n=5$ & Note & 0.48 & 0.60 & 0.32 & 0.44 \\
+        \midrule
+        \multicolumn{6}{l}{\textbf{Memory Architecture}} \\
+        RAG & Event & 0.45 & 0.51 & 0.29 & 0.40 \\
+        Mem0 & Event & 0.47 & 0.62 & 0.31 & 0.44 \\
+        RAG & Note & 0.48 & 0.60 & 0.31 & 0.44 \\
+        Mem0 & Note & 0.46 & 0.56 & 0.29 & 0.41 \\
+        \bottomrule
+    \end{tabular*}}
 \end{table}
 
-\textbf{Finding.} Neither RAG retrieval nor agent memory management (Mem0) provides significant improvement over the naive long-context baseline. In some conditions, augmentation slightly degrades performance. This negative result is the central empirical contribution: it reveals that the bottleneck in longitudinal clinical decision-making is not \emph{retrieval} (locating relevant history) but \emph{integration} (understanding how historical information bears on the current decision). Current architectures optimize for retrieval quality, but our results indicate that for clinical planning, closing the gap between retrieval and reasoning is the critical challenge.
-
-\subsection{Historical Depth: Visit Injection Ablation}
-
-Table~\ref{tab:depth} shows performance as a function of injected historical visits ($n$). The $n=0$ baseline ($\mathcal{M}_C^{(j,T)}$ only, no history) is particularly informative.
-
-\begin{table}[!h]
-    \centering
-    \caption{Effect of historical depth on T3-D (Qwen-Turbo, Event Memory).}
-    \label{tab:depth}
-    \begin{tabular*}{\textwidth}{>{\centering\arraybackslash}m{0.3\textwidth}>{\centering\arraybackslash}m{0.25\textwidth}>{\centering\arraybackslash}m{0.35\textwidth}}
-        \hline
-        \textbf{$n$ (Visits)} & \textbf{T3-D Acc.} & \textbf{Interpretation} \\
-        \hline
-        0 (Context only) & [TODO] & Baseline: no history \\
-        \hline
-        1 & [TODO] & Single prior visit \\
-        \hline
-        2 & [TODO] & Two prior visits \\
-        \hline
-        3 & [TODO] & Three prior visits \\
-        \hline
-        $\infty$ (All) & [TODO] & Complete history \\
-        \hline
-    \end{tabular*}
-\end{table}
-
-\textbf{Finding.} Performance does not monotonically improve with historical depth. The $n=0$ baseline achieves accuracy comparable to full-history conditions, indicating that decisions are driven primarily by the immediate clinical presentation. Adding history introduces noise that can offset the value of relevant historical information---consistent with the lost-in-the-middle effect \cite{liu2023lostmiddlelanguagemodels}.
+\textbf{Finding.} The ablation results revise the earlier interpretation: the negative result is not specific to Discharge Decision, but spans the broader decision-making suite. Even when historical information is made available through longer visit injection, RAG, or Mem0, models do not systematically improve on Argument Prediction, Discharge Decision, or Next Action Prediction. The $n=0$ baseline remains competitive, indicating that agents rely heavily on immediate context and struggle to convert retrieved history into better decisions.
 
 \subsection{Chain-of-Thought Reasoning}
 
-For DeepSeek-v3.2, explicit chain-of-thought reasoning reduces T3-D accuracy from 0.607 to 0.593. Qualitative analysis of reasoning traces suggests that thinking mode makes the model more conservative---it identifies information gaps and hesitates rather than committing to a decision. This highlights a tension between clinical caution and benchmark performance.
-
-\subsection{Cross-Model Comparison}
-
-[TODO: Brief comparison of performance across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo. Note whether larger context windows (400K vs.\ 128K) translate to better decision-making, and whether model architecture matters more than context capacity.]
-
-\subsection{Error Analysis}
-
-[TODO: Summary of error patterns---
-\begin{itemize}
-    \item Action category confusion matrix (which types are most often confused?)
-    \item Temporal sensitivity (does accuracy degrade deeper into a visit or later in a trajectory?)
-    \item Patient complexity correlation (does performance correlate with visit count or event density?)
-    \item Clinically reasonable alternatives (among incorrect EM predictions, what fraction represent clinically defensible actions?)
-\end{itemize}]
+Explicit chain-of-thought reasoning does not improve decision-making performance for DeepSeek-v3.2. Under Event Memory, the average score drops from 0.439 to 0.419, and Discharge Decision decreases from 0.607 to 0.593. This suggests that reasoning mode may make the model more conservative or distract it from committing to the multiple-choice decision, especially when the task requires selecting an actionable next step rather than explaining uncertainty.
 
 \subsection{Summary of Findings}
 
-The experimental results converge on a coherent narrative: (1) Clinical decision-making remains challenging (accuracy 0.55--0.62 across all models); (2) Memory granularity matters modestly (Event slightly outperforms Note); (3) Memory augmentation (RAG, Mem0) does not significantly improve decision-making---the central negative result; (4) Immediate context dominates historical context; (5) Chain-of-thought reasoning can degrade performance through increased conservatism. These findings collectively reveal a retrieval-reasoning gap whose implications we explore in Chapter~3.
+The experimental results converge on a refined narrative: (1) decision-making remains challenging, especially for Next Action Prediction; (2) Discharge Decision is easier and should not be used as a proxy for the entire decision-making benchmark; (3) Event Memory can modestly improve Argument Prediction but does not reliably improve average decision-making performance; (4) historical visit injection, RAG, and Mem0 do not provide systematic gains over the immediate-context baseline; and (5) chain-of-thought reasoning can degrade performance through increased conservatism. These findings collectively reveal a retrieval-reasoning gap whose implications we explore in Chapter~3.
 
-\subsection{Qualitative Case Study}
+\subsection{Qualitative Case Studies}
 
-To illustrate the decision-making task concretely, consider a representative patient from our cohort: a 68-year-old male with chronic kidney disease, type 2 diabetes, and hypertension, with 21 hospitalizations over five years. At a mid-visit decision point during his 15th admission (presenting with fever and elevated creatinine), the agent receives:
+To ground the quantitative results in concrete agent behaviors, we inspect representative decision instances from the evaluation set. The following cases illustrate how memory architecture and memory type shape agent decisions at the level of individual queries.
 
-\begin{itemize}
-    \item \textbf{Context Memory ($\mathcal{M}_C^{(j,T)}$):} Admission event (fever, hypotension), initial lab results (elevated WBC, creatinine 2.8 mg/dL), and one prior imaging order (chest X-ray, pending result).
-    \item \textbf{Historical Memory (Event):} Events showing that during prior febrile episodes, the patient responded to vancomycin but developed acute kidney injury requiring dose adjustment; a CT abdomen from visit 12 revealed nephrolithiasis.
-    \item \textbf{Decision Query:} ``Based on the patient's history and current status, what should be the next clinical action?''
-\end{itemize}
+\paragraph{Historical memory can change answers---sometimes for the worse.}
+In a Next Action Prediction instance for a chemotherapy patient (Patient~3, Visit~16), the ground-truth next action is \texttt{medication}. With no injected history ($n=0$), the agent correctly selects \texttt{medication}, reasoning that furosemide is needed to manage fluid overload during chemotherapy. At $n=2$, the same correct answer is produced. However, at $n=5$, the agent switches to \texttt{order\_labs}, now reasoning that ``the patient is undergoing R-ICE chemotherapy and has abnormal lab results, indicating the need for further laboratory testing.'' Five historical visits introduce enough distracting context to overrule the initially correct decision. This non-monotonic pattern---correct at moderate history, wrong at longer history---mirrors the aggregate ablation results and suggests that longer context can dilute rather than strengthen clinical judgment.
 
-The ground-truth action (from actual records) is ordering blood cultures and starting empiric vancomycin at renally adjusted dosing. An agent relying solely on $\mathcal{M}_C^{(j,T)}$ might order broad-spectrum antibiotics at standard dosing; an agent effectively integrating history would recognize the need for renal adjustment based on prior vancomycin-associated AKI and the current elevated creatinine. This case illustrates the type of decision where historical integration should change the answer---and where our benchmark can measure whether it does.
+\paragraph{Retrieved history can mislead when it mimics the current presentation.}
+In an Argument Prediction instance (Patient~1, Visit~20), the agent must select the most appropriate next imaging study for a patient with bilateral lower-extremity edema. The long-context baseline correctly selects \texttt{XRAY abdomen}, reasoning that systemic conditions such as liver disease or heart failure warrant abdominal evaluation. The RAG-augmented agent selects \texttt{CT chest}, distracted by retrieved note text mentioning chest pain and a non-diagnostic chest X-ray. The Mem0-augmented agent selects \texttt{CT head}, focusing on a retrieved headache complaint from an earlier visit. Both retrieval-based agents are led astray by historical snippets that superficially match but are clinically irrelevant to the current presentation. This illustrates a concrete failure mode: when retrieval returns temporally nearby but causally unrelated events, the agent conflates them with the immediate clinical context.
+
+\paragraph{Note Memory can misattribute retrieved content to the current visit.}
+In another Next Action Prediction instance (Patient~1, Visit~20), the ground-truth action is \texttt{order\_labs}. The Mem0 agent correctly selects \texttt{order\_labs} under Event Memory, citing persistent electrolyte abnormalities and rising creatinine. Under Note Memory, however, the same agent switches to \texttt{medication}, justifying the choice with a positive stool culture for \textit{Salmonella} found in a retrieved discharge summary from a prior admission. The agent fails to distinguish a retrospective finding from a current clinical need, treating historical note content as actionable evidence for the present visit. This confusion is less likely under Event Memory, where explicit timestamps and structured fields make temporal provenance clearer.
 
 \subsection{Discussion of Negative Results}
 
-The finding that memory augmentation does not improve decision-making may appear discouraging, but it carries productive implications. First, it identifies a genuine capability gap that current architectures cannot bridge through scale or retrieval quality alone---the gap is architectural, not parametric. Second, it provides a clear target for future work: architectures that explicitly model the relationship between retrieved history and current decisions, rather than treating retrieval as an independent preprocessing step. Third, it validates LongMedBench's sensitivity: a benchmark that showed all approaches performing equally well would be uninformative; one that reveals systematic failure modes provides actionable diagnostic signal.
+The finding that memory augmentation does not improve decision-making may appear discouraging, but it carries productive implications. First, it identifies a genuine capability gap that current architectures cannot bridge through scale or retrieval quality alone---the gap is architectural, not parametric. Second, it provides a clear target for future work: architectures that explicitly model the relationship between retrieved history and current decisions, rather than treating retrieval as an independent preprocessing step. Third, the qualitative cases reveal specific failure modes---context dilution at longer histories, distraction by superficially similar retrieved snippets, and temporal misattribution of note content---that are diagnosable and potentially addressable through memory designs that preserve temporal provenance and causal relevance.
 
-The contrast with EHR-Bench \cite{2025_ehr_r1} is instructive. While EHR-Bench demonstrated that LLMs can predict next clinical events from complete histories with non-trivial accuracy, our agent-based setting reveals that this capability does not translate to interactive decision-making where history must be selectively retrieved and integrated. The two paradigms evaluate complementary but distinct capabilities---static prediction vs.\ interactive planning---and gap between them highlights the importance of evaluation methodology in assessing clinical AI readiness.
+The contrast with EHR-Bench \cite{2025_ehr_r1} is instructive. EHR-Bench demonstrated that LLMs can predict next clinical events from complete histories with non-trivial accuracy, but our agent-based setting reveals that this does not translate to interactive decision-making where history must be selectively retrieved and integrated. The two paradigms evaluate complementary but distinct capabilities---static prediction vs.\ interactive planning---and the gap between them highlights the importance of evaluation methodology in assessing clinical AI readiness.
