@@ -123,7 +123,7 @@ LongMedBench is positioned at the intersection of the fields above. On one hand,
 
 \section{Research Questions}
 
-Specifically, focusing on Long-Horizon Decision-Making tasks on LongMedBench, this thesis investigates three questions:
+Specifically, focusing on Long-Horizon Decision-Making tasks of LongMedBench, this thesis investigates three questions:
 
 \begin{enumerate}
     \item \textbf{Memory granularity:} Does the format of historical information affect clinical decision quality?
@@ -138,11 +138,11 @@ Within the broader LongMedBench project, this thesis makes four contributions:
 \begin{enumerate}
     \item \textbf{EHR-to-Agent Data Pipeline.} A reproducible pipeline transforming raw MIMIC-IV \cite{PhysioNet-mimiciv-3.1} records into longitudinal event streams for interactive agent evaluation, yielding 355 patients and 6,999 hospitalization visits (mean 19.72 visits/patient, 44.91 medical events/visit).
     
-    \item \textbf{Three-Tier Memory Architecture.} A memory framework operating at three granularities enabling systematic ablation of memory granularity effects, including Note Memory (coarse-grained visit summaries), Event Memory (fine-grained structured event sequences), and Contextual Memory (immediate visit context)---.
+    \item \textbf{Three-Tier Memory Architecture.} A memory framework operating at three granularities enabling systematic ablation of memory granularity effects, including Note Memory (coarse-grained visit summaries), Event Memory (fine-grained structured event sequences), and Contextual Memory (immediate visit context).
     
     \item \textbf{Long-Horizon Decision-Making Task.} An interactive evaluation protocol where the agent receives a partial patient trajectory through controlled memory and must predict the next clinical action from a predefined action space, with ground truth extracted from actual clinical records.
     
-    \item \textbf{Empirical Finding.} Through experiments across GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo comparing Naive Long-Context, RAG, and Mem0 strategies, we find that memory augmentation provides no significant improvement for longitudinal clinical decision-making. Decision accuracy depends primarily on immediate context, revealing a retrieval-reasoning gap for longitudinal clinical decision-making.
+    \item \textbf{Empirical Finding.} Through experiments across GPT-5-mini \cite{gpt52}, DeepSeek-v3.2 \cite{deepseekai2025deepseekv32}, and Qwen-Turbo \cite{qwen3} comparing Naive Long-Context, RAG, and Mem0 strategies, we find that memory augmentation provides no significant improvement for longitudinal clinical decision-making. Decision accuracy depends primarily on immediate context, revealing a retrieval-reasoning gap for longitudinal clinical decision-making.
 \end{enumerate}
 
 \section{Scope and Structure}
