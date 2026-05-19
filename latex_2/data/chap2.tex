@@ -1,6 +1,6 @@
 \chapter{Methodology and Experiments}
 
-This chapter presents the LongMedBench decision-making pipeline: from raw EHR data to interactive agent evaluation. Section~\ref{sec:pipeline} describes the data processing pipeline. Section~\ref{sec:memory} presents the three-tier memory architecture. Section~\ref{sec:task} formulates the T3-D decision-making task. Section~\ref{sec:expsetup} details the experimental design. Section~\ref{sec:results} presents results and analysis.
+This chapter presents the LongMedBench decision-making pipeline: from raw EHR data to interactive agent evaluation. Section~\ref{sec:pipeline} describes the data processing pipeline. Section~\ref{sec:memory} presents the three-tier memory architecture. Section~\ref{sec:task} formulates the decision-making task. Section~\ref{sec:expsetup} details the experimental design. Section~\ref{sec:results} presents results and analysis.
 
 \section{EHR Data Processing Pipeline}
 \label{sec:pipeline}
@@ -12,13 +12,18 @@ This chapter presents the LongMedBench decision-making pipeline: from raw EHR da
     \label{fig:pipeline}
 \end{figure}
 
-LongMedBench is constructed from MIMIC-IV v3.1 \cite{PhysioNet-mimiciv-3.1}, a publicly available de-identified database containing comprehensive clinical data for over 100,000 patients at Beth Israel Deaconess Medical Center (2008--2019). The database includes structured tables and unstructured clinical notes. To convert this static relational database into an interactive agent-compatible environment, we design a three-stage pipeline (Figure~\ref{fig:pipeline}).
+LongMedBench is constructed from MIMIC-IV v3.1 \cite{PhysioNet-mimiciv-3.1}, a publicly available de-identified database containing comprehensive clinical data for over 100,000 patients at Beth Israel Deaconess Medical Center (2008--2022). To convert this database into an interactive agent-compatible environment, we design a three-stage pipeline (Figure~\ref{fig:pipeline}).
 
-\subsection{Patient and Event Filtering}
 
-\paragraph{Event-Level Filtering.} We retain only laboratory results flagged as abnormal. Normal lab values carry limited clinical signal for decision-making and inflate context without benefit. Hager et al., demonstrated in MIMIC-CDM that presenting the model with only abnormal laboratory results generally improved diagnostic performance by allowing the model to focus more on abnormal, pathological signals \cite{hager2024evaluation}. This makes the evaluation more clinically realistic. Like real-world clinicians, the agent should reason from salient signals, not passively absorb all measurements.
+\subsection{Data Preprocessing \& Event Filtering}
 
-\paragraph{Patient-Level Filtering.} We require complete admission and discharge records for all hospitalizations, and select patients with at least 15 recorded hospitalizations. This threshold yields trajectories with sufficient density for longitudinal reasoning evaluation (discussed in Chapter~3).
+\paragraph{Event-Level Filtering.} All structured clinical events are extracted from the \texttt{hosp} module, including laboratory measurements, microbiology cultures, medication prescriptions, and billing diagnoses and procedures. Among these, we retain only laboratory results flagged as abnormal; normal lab values are excluded. Microbiology cultures, medication prescriptions, and billing events are retained in full. The rationale for this selective filtering strategy is discussed in Chapter~3.
+
+\paragraph{Patient-Level Preprocessing.} We require each hospitalization to have a complete discharge summary from the \texttt{note} module whose timestamp aligns with the corresponding admission record in \texttt{hosp/admissions}; visits lacking a matched discharge note are excluded. From the remaining visits, we select patients with at least 15 recorded hospitalizations. The rationale for these filtering decisions is discussed in Chapter~3. 
+
+From the \texttt{admissions} table, we decompose each hospitalization into two boundary events. The admission event captures the patient's demographics, chief complaint, and initial physical examination findings at intake. The discharge eventcaptures the discharge narrative and the final diagnoses recorded in \texttt{diagnoses\_icd}. 
+
+\paragraph{Note Preprocessing.} Radiology reports are converted to structured imaging events via regular expression parsing: the modality (e.g., CT, X-ray, MRI) and body region (e.g., chest, abdomen) are extracted as the action type and parameter, respectively, while the full report text is retained as the observation result. Discharge notes $N_i$ are decomposed into admission information $N_i^{adm}$ and discharge information $N_i^{dis}$, then attached to the corresponding admission or discharge events. Both summaries are preserved in narrative format for use in Note Memory (Section~\ref{sec:notemem}) and ground-truth extraction. 
 
 \paragraph{Resulting Cohort.} The filtered dataset comprises 355 patients with 6,999 inpatient visits. Mean visits per patient: 19.72 (median = 18.00, SD = 5.72). Mean medical events per visit: 44.91 (median = 25.00, SD = 70.32). The distribution of data is shown in Figure~\ref{fig:visit_distribution}. This dense multi-session structure challenges models on cross-visit memory retention and temporal reasoning.
 
@@ -31,15 +36,9 @@ LongMedBench is constructed from MIMIC-IV v3.1 \cite{PhysioNet-mimiciv-3.1}, a p
 
 \subsection{Event Stream Construction}
 
-We transform filtered records into a unified, time-ordered event stream for each patient. A medical event is any discrete clinical occurrence, formalized as $E^k_i = \{a^k_i, t^k_i, p^k_i, o^k_i\}$, where $a^k_i$ is the action type (imaging, lab test, medication, procedure, etc.), $t^k_i$ is the timestamp, $p^k_i$ is the action parameter (e.g., CT vs. X-ray for imaging), and $o^k_i$ is the observation result (radiology report, lab value, administration confirmation).
+We transform filtered records into a unified, time-ordered event stream for each patient. A medical event denoted as $E^k_i = \{a^k_i, t^k_i, p^k_i, o^k_i\}$, where $a^k_i$ is the action type including \textit{imaging, lab test, medication, etc.}, as shown in Figure~\ref{fig:pipeline}, $t^k_i$ is the timestamp, $p^k_i$ is the action parameter (e.g., \textit{CT vs.\ X-ray for imaging}), and $o^k_i$ is the observation result, \textit{like a radiology report and lab values}.
 
-Each visit $\mathcal{V}_i$ is bounded by an admission event $E^{adm}_i$ and a discharge event $E^{dis}_i$: $\mathcal{V}_i = \{E^{adm}_i, E^1_i, E^2_i, \dots, E^m_i, E^{dis}_i\}$. The complete patient stream is $\mathcal{S_P} = \{\mathcal{V}_1, \mathcal{V}_2, \dots, \mathcal{V}_n\}$, where $n$ is the number of visits.
-
-\textbf{Note Processing.} Radiology reports are converted to structured imaging events via regular expression parsing. Discharge notes $N_i$ are decomposed into admission information $N_i^{adm}$ and discharge information $N_i^{dis}$, preserved in narrative format for use in Note Memory (Section~\ref{sec:notemem}) and ground-truth extraction.
-
-\subsection{Reproducibility}
-
-The pipeline is implemented as standardized, modular, version-controlled scripts. Each stage (extraction, event construction, task generation) is independently executable, enabling end-to-end reproducibility and adaptability to other EHR databases.
+We define a visit as the period spanning from an admission event $E^{adm}_i$ to the corresponding discharge event $E^{dis}_i$. All other structured events occurring between these two timestamps are collected and ordered chronologically. Formally, each visit $\mathcal{V}_i$ can be represented as $\mathcal{V}_i = \{E^{adm}_i, E^1_i, E^2_i, \dots, E^m_i, E^{dis}_i\}$. The complete patient stream can therefore be denoted as $\mathcal{S_P} = \{\mathcal{V}_1, \mathcal{V}_2, \dots, \mathcal{V}_n\}$, where $n$ is the total number of visits.
 
 \section{Three-Tier Memory Architecture}
 \label{sec:memory}
