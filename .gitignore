@@ -52,3 +52,4 @@ latexmkrc
 # Ignore temporary files
 *.tmp
 *.bak
+.*

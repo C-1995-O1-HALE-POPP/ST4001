@@ -43,41 +43,33 @@ We define a visit as the period spanning from an admission event $E^{adm}_i$ to 
 \section{Three-Tier Memory Architecture}
 \label{sec:memory}
 
-A central design principle is the controlled provision of historical clinical information. We define a three-tier memory architecture that systematically varies both the granularity of historical information. Given the earliest historical visit $\mathcal{V}_i$, the current visit $\mathcal{V}_j$, and the current timestamp $T$, the agent's memory access is strictly bounded to prevent event leakage.
+To provide the agents with controlled provision of historical information, we define a three-tier memory architecture that systematically varies the granularity of historical information. Given the earliest historical visit $\mathcal{V}_i$, the current visit $\mathcal{V}_j$, and the current timestamp $T$, the agent's memory access is strictly bounded to prevent event leakage.
 
-\subsection{Note Memory (Coarse-Grained)}
+\subsection{Note Memory}
 \label{sec:notemem}
 
 $\mathcal{M}^{(i,j)}_N := \{N_i, N_{i+1}, \dots, N_{j-1}\}$, which contains continuous visit-level discharge summaries from $\mathcal{V}_i$ to $\mathcal{V}_{j-1}$. Note Memory is compact and preserves clinical narrative structure, emphasizing the global trajectory, but discards fine-grained temporal and event-level details.
 
-\subsection{Event Memory (Fine-Grained)}
+\subsection{Event Memory}
 \label{sec:eventmem}
 
-$\mathcal{M}^{(i,j)}_E := \bigcup_{k=i}^{j-1} \mathcal{V}_k$, which contains all clinical events from $\mathcal{V}_i$ to $\mathcal{V}_{j-1}$. Events are flattened into a single chronological sequence, discarding visit-level boundaries and forming a unified patient trajectory. Event Memory is information-complete, but its volume (mean 900 events across 20 visits) approaches or exceeds typical LLM context windows, creating a natural stress test for both long-context capabilities and retrieval strategies.
+$\mathcal{M}^{(i,j)}_E := \bigcup_{k=i}^{j-1} \mathcal{V}_k$, which contains all clinical events from $\mathcal{V}_i$ to $\mathcal{V}_{j-1}$. Events are flattened into a single chronological sequence, discarding visit-level boundaries and forming a unified trajectory. Event Memory is information-complete, and its volume creates a natural stress test for both long-context capabilities and retrieval strategies.
 
-\subsection{Context Memory (Immediate)}
+\subsection{Context Memory}
 \label{sec:contextmem}
 
-$\mathcal{M}_C^{(j,T)} := \{(r_0, m_0), (r_1, m_1), \dots, (r_P, m_P)\}$, where $r_k$ and $m_k$ denote the dialog role and message content, respectively. Any event $E_j^k$ in $\mathcal{V}_j$ with timestamp $t_j^k < T$ is transformed into an LLM-style conversation trajectory, simulating the agent's instant interaction state up to the decision point. Context Memory represents the baseline information always available to the agent. Historical memory ($\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$) is the experimental variable, enabling isolation of the marginal contribution of history beyond the immediate clinical context.
+$\mathcal{M}_C^{(j,T)} := \{(r_0, m_0), (r_1, m_1), \dots, (r_P, m_P)\}$, where $r_k$ and $m_k$ denote the dialog role (\texttt{assistant} or \texttt{user}) and message content, respectively. Rewritten by LLM, any event $E_j^k$ in $\mathcal{V}_j$ with timestamp $t_j^k < T$ is transformed into a conversation trajectory between the agent and the clinical environment, simulating the agent's instant interaction state up to the decision point. 
 
-\subsection{Memory Provision Strategies}
+Context Memory represents the baseline information always available to the agent. Historical memory ($\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$) is the experimental variable, enabling isolation of the marginal contribution of history beyond the immediate clinical context.
 
-Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent:
-
-\textbf{Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance.
-
-\textbf{RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
-
-\textbf{Mem0 (Agent Memory).} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
-
-\section{Long-Horizon Decision-Making Task (T3-D)}
+\section{Long-Horizon Decision-Making Task}
 \label{sec:task}
 
-The T3-D task evaluates an LLM agent's ability to make proactive clinical decisions based on partial patient trajectories. Unlike static benchmarks that present complete histories for classification, T3-D simulates interactive decision-making: the agent receives information incrementally and must determine the next action at each decision point.
+Unlike static benchmarks that present complete histories for classification, this task simulates interactive decision-making, where the agent receives information incrementally and must determine the next action at each decision point.
 
 \subsection{Task Formulation}
 
-At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Context Memory $\mathcal{M}_C^{(j,T)}$; (3) Historical Memory ($\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$, at controlled granularity and provision strategy); and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
+At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Context Memory $\mathcal{M}_C^{(j,T)}$; (3) Historical Memory, i.e., $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$, at controlled granularity and provision strategy; and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
 
 \subsection{Action Space and Ground Truth}
 
@@ -99,6 +91,16 @@ These metrics capture complementary aspects: EM is strict, penalizing clinically
 \subsection{Models}
 
 We evaluate three state-of-the-art LLMs: GPT-5-mini (400K context window), DeepSeek-v3.2 (128K context, with and without chain-of-thought reasoning mode), and Qwen-Turbo (128K context, baseline for ablation studies). All are evaluated through their respective APIs with standardized prompts.
+
+\subsection{Agent Architectures}
+
+Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent:
+
+\textbf{Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance.
+
+\textbf{RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
+
+\textbf{Mem0 (Agent Memory).} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
 
 \subsection{Experimental Conditions}
 
