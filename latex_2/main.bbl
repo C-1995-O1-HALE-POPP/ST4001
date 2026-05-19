@@ -1,4 +1,4 @@
-\begin{thebibliography}{23}
+\begin{thebibliography}{28}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{#1}
 \expandafter\ifx\csname urlstyle\endcsname\relax\else
@@ -38,17 +38,6 @@ LEE G, HWANG H, BAE S, et~al.
 \newblock {EHRSQL: A Practical Text-to-SQL Benchmark for Electronic Health Records}\allowbreak[J].
 \newblock Advances in Neural Information Processing Systems, 2022, 35: 15589-15601.
 
-\bibitem[Lee et~al.(2024)]{2024_ehrsql_shared}
-LEE G, et~al.
-\newblock {Overview of the EHRSQL 2024 Shared Task on Reliable Text-to-SQL Modeling on Electronic Health Records}\allowbreak[C]//\allowbreak
-NAACL.
-\newblock 2024.
-
-\bibitem[Wang et~al.(2025)]{2025_fhir_agentbench}
-WANG Y, et~al.
-\newblock {FHIR-AgentBench: Benchmarking LLM Agents for Realistic Interoperable EHR Question Answering}\allowbreak[A].
-\newblock 2025.
-
 \bibitem[Fleming et~al.(2024)]{2024_medalign}
 FLEMING S, et~al.
 \newblock {MedAlign: A Clinician-Generated Dataset for Instruction Following with Electronic Medical Records}\allowbreak[J].
@@ -71,24 +60,25 @@ HUANG Z, et~al.
 \newblock {ER-REASON: A Benchmark Dataset for LLM-Based Clinical Reasoning in the Emergency Room}\allowbreak[A].
 \newblock 2025.
 
+\bibitem[Wang et~al.(2025)]{2025_fhir_agentbench}
+WANG Y, et~al.
+\newblock {FHIR-AgentBench: Benchmarking LLM Agents for Realistic Interoperable EHR Question Answering}\allowbreak[A].
+\newblock 2025.
+
 \bibitem[Schmidgall et~al.(2025)]{2025_medagentgym}
 SCHMIDGALL S, et~al.
 \newblock {MedAgentGym: A Scalable Agentic Training Environment for Code-Centric Reasoning in Biomedical Data Science}\allowbreak[A].
 \newblock 2025.
 
-\bibitem[Singhal et~al.(2026)]{2026_medhelm}
-SINGHAL K, et~al.
-\newblock {Holistic Evaluation of Large Language Models for Medical Tasks with MedHelm}\allowbreak[A].
-\newblock 2026.
+\bibitem[Gao et~al.(2025)]{2025_timer}
+GAO Y, et~al.
+\newblock {TIMER: Temporal Instruction Modeling and Evaluation for Longitudinal Clinical Records}\allowbreak[J/OL].
+\newblock npj Digital Medicine, 2025.
+\newblock DOI: \doi{10.1038/s41746-025-01965-9}.
 
-\bibitem[Fleming et~al.(2025)]{2025_healthbench}
-FLEMING S, et~al.
-\newblock {HealthBench: Evaluating Large Language Models Towards Improved Human Health}\allowbreak[A].
-\newblock 2025.
-
-\bibitem[Yang et~al.(2025)]{2025_bridge}
+\bibitem[Yang et~al.(2025)]{2025_ehr_r1}
 YANG Z, et~al.
-\newblock {BRIDGE: Benchmarking Large Language Models for Understanding Real-world Clinical Practice Text}\allowbreak[A].
+\newblock {EHR-R1: A Reasoning-Enhanced Foundational Language Model for Electronic Health Record Analysis}\allowbreak[A].
 \newblock 2025.
 
 \bibitem[Hsieh et~al.(2024)Hsieh, Sun, Kriman, Acharya, Rekesh, Jia, Zhang, and Ginsburg]{hsieh2024rulerwhatsrealcontext}
@@ -98,11 +88,6 @@ HSIEH C~P, SUN S, KRIMAN S, et~al.
 \newblock arXiv: \eprint{https://arxiv.org/abs/2404.06654}{2404.06654}.
 \newblock \url{https://arxiv.org/abs/2404.06654}.
 
-\bibitem[Wu et~al.(2024)Wu, Wang, Yu, Zhang, Chang, and Yu]{wu2024longmemeval}
-WU D, WANG H, YU W, et~al.
-\newblock {LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory}\allowbreak[J].
-\newblock https://arxiv.org/abs/2410.10813, 2024.
-
 \bibitem[Kočiský et~al.(2017)Kočiský, Schwarz, Blunsom, Dyer, Hermann, Melis, and Grefenstette]{kočiský2017narrativeqareadingcomprehensionchallenge}
 KOčISKý T, SCHWARZ J, BLUNSOM P, et~al.
 \newblock {The NarrativeQA Reading Comprehension Challenge}\allowbreak[A/OL].
@@ -110,28 +95,70 @@ KOčISKý T, SCHWARZ J, BLUNSOM P, et~al.
 \newblock arXiv: \eprint{https://arxiv.org/abs/1712.07040}{1712.07040}.
 \newblock \url{https://arxiv.org/abs/1712.07040}.
 
-\bibitem[Liu et~al.(2023)Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and Liang]{liu2023lostmiddlelanguagemodels}
-LIU N~F, LIN K, HEWITT J, et~al.
-\newblock {Lost in the Middle: How Language Models Use Long Contexts}\allowbreak[A/OL].
-\newblock 2023.
-\newblock arXiv: \eprint{https://arxiv.org/abs/2307.03172}{2307.03172}.
-\newblock \url{https://arxiv.org/abs/2307.03172}.
+\bibitem[Yang et~al.(2018)Yang, Qi, Zhang, Bengio, Cohen, Salakhutdinov, and Manning]{yang2018hotpotqa}
+YANG Z, QI P, ZHANG S, et~al.
+\newblock {HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering}\allowbreak[C]//\allowbreak
+Conference on Empirical Methods in Natural Language Processing ({EMNLP}).
+\newblock 2018.
 
-\bibitem[Yang et~al.(2025)]{2025_ehr_r1}
-YANG Z, et~al.
-\newblock {EHR-R1: A Reasoning-Enhanced Foundational Language Model for Electronic Health Record Analysis}\allowbreak[A].
-\newblock 2025.
+\bibitem[Maharana et~al.(2024)]{loComo_reference}
+MAHARANA A, et~al.
+\newblock {LoCoMo: Long Context Memory Benchmark for LLM Agents}\allowbreak[A].
+\newblock 2024.
+
+\bibitem[Wu et~al.(2024)Wu, Wang, Yu, Zhang, Chang, and Yu]{wu2024longmemeval}
+WU D, WANG H, YU W, et~al.
+\newblock {LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory}\allowbreak[J].
+\newblock https://arxiv.org/abs/2410.10813, 2024.
+
+\bibitem[Shen et~al.(2026)Shen, Huang, Wang, Tian, Guo, Zhang, Zhou, Hu, Li, Xu, Wang, Liu, Li, Yue, Hong, Liu, and Zeng]{shen2026tripbenchbenchmarklonghorizoninteractive}
+SHEN Y, HUANG Z, WANG Z, et~al.
+\newblock {TRIP-Bench: A Benchmark for Long-Horizon Interactive Agents in Real-World Scenarios}\allowbreak[A/OL].
+\newblock 2026.
+\newblock arXiv: \eprint{https://arxiv.org/abs/2602.01675}{2602.01675}.
+\newblock \url{https://arxiv.org/abs/2602.01675}.
+
+\bibitem[Chen et~al.(2026)]{amabench2026}
+CHEN W, et~al.
+\newblock {AMA-Bench: Evaluating Long-Horizon Memory for Agentic Applications}\allowbreak[A].
+\newblock 2026.
+
+\bibitem[Lewis et~al.(2020)]{lewis2020rag}
+LEWIS P, et~al.
+\newblock {Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks}\allowbreak[J].
+\newblock NeurIPS, 2020.
 
 \bibitem[Desai et~al.(2024)]{mem0_reference}
 DESAI T, et~al.
 \newblock {Mem0: A Personalized AI Memory Layer}\allowbreak[J].
 \newblock https://github.com/mem0ai/mem0, 2024.
 
-\bibitem[Gao et~al.(2025)]{2025_timer}
-GAO Y, et~al.
-\newblock {TIMER: Temporal Instruction Modeling and Evaluation for Longitudinal Clinical Records}\allowbreak[J/OL].
-\newblock npj Digital Medicine, 2025.
-\newblock DOI: \doi{10.1038/s41746-025-01965-9}.
+\bibitem[Packer et~al.(2023)]{memgpt_reference}
+PACKER C, et~al.
+\newblock {MemGPT: Towards LLMs as Operating Systems}\allowbreak[A].
+\newblock 2023.
+
+\bibitem[Zhang et~al.(2025)]{amem2025}
+ZHANG Y, et~al.
+\newblock {A-MEM: Agentic Memory for LLM Agents}\allowbreak[A].
+\newblock 2025.
+
+\bibitem[EverMind-AI(2026)]{evermemos2026}
+EVERMIND-AI.
+\newblock {EverMemOS: A Self-Organizing Memory Operating System for Structured Long-Horizon Reasoning}\allowbreak[A].
+\newblock 2026.
+
+\bibitem[Wang et~al.(2025)]{memoryasaction2025}
+WANG H, et~al.
+\newblock {Memory as Action: Autonomous Context Curation for Long-Horizon Agentic Tasks}\allowbreak[A].
+\newblock 2025.
+
+\bibitem[Liu et~al.(2023)Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and Liang]{liu2023lostmiddlelanguagemodels}
+LIU N~F, LIN K, HEWITT J, et~al.
+\newblock {Lost in the Middle: How Language Models Use Long Contexts}\allowbreak[A/OL].
+\newblock 2023.
+\newblock arXiv: \eprint{https://arxiv.org/abs/2307.03172}{2307.03172}.
+\newblock \url{https://arxiv.org/abs/2307.03172}.
 
 \bibitem[Faltys et~al.(2021)]{2021_hirid_icu}
 FALTYS M, et~al.

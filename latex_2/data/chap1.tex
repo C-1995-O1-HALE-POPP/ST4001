@@ -6,7 +6,7 @@ Clinical practice is fundamentally longitudinal. Patients with chronic condition
 
 As large language models (LLMs) transition from static question-answering to autonomous medical agents, their ability to navigate longitudinal clinical trajectories has become a critical benchmark for clinical readiness. Yet existing evaluation benchmarks assess single-encounter behavior: tool-use accuracy in a simulated visit, diagnosis from a single symptom set, or fact retrieval from a single discharge summary. These evaluations, while valuable, do not measure the cross-visit temporal integration that real clinical practice demands.
 
-This thesis presents the decision-making component of \textbf{LongMedBench}, a benchmark constructed from MIMIC-IV EHR data that evaluates LLM agents on long-horizon clinical decision-making. Our work bridges two previously disconnected lines of research: the design of long-horizon interaction benchmarks from the general AI domain, and the evaluation of clinical reasoning from real-world EHR data. Through a three-tier memory architecture and systematic ablation of memory strategies, we investigate a central question: given long-context windows, RAG, and agent memory systems, how well can contemporary LLMs integrate longitudinal clinical history to inform next-step decisions?
+This thesis presents the decision-making component of \textbf{LongMedBench}, a benchmark constructed from MIMIC-IV \cite{PhysioNet-mimiciv-3.1} EHR data that evaluates LLM agents on long-horizon clinical decision-making. Our work bridges two previously disconnected lines of research: the design of long-horizon interaction benchmarks from the general AI domain, and the evaluation of clinical reasoning from real-world EHR data. Through a three-tier memory architecture and systematic ablation of memory strategies, we investigate a central question: given long-context windows, RAG, and agent memory systems, how well can contemporary LLMs integrate longitudinal clinical history to inform next-step decisions?
 
 \section{Medical Benchmarks for Clinical AI}
 
@@ -25,16 +25,13 @@ This thesis presents the decision-making component of \textbf{LongMedBench}, a b
         PromptCBLUE \cite{2023_promptcblue} & & & & & & & 2023 & Exams \\
         EHRSQL \cite{lee2022ehrsql} & \checkmark & & & & & & 2022 & MIMIC-IV \\
         MedAlign \cite{2024_medalign} & \checkmark & & & \checkmark & & & 2024 & STARR \\
-        MedAgentBench \cite{jiang2025medagentbench} & \checkmark & & \checkmark & & & & 2025 & STARR \\
-        AgentClinic \cite{schmidgall2025agentclinicmultimodalagentbenchmark} & \checkmark & & \checkmark & & & & 2025 & Simulated \\
+        MedAgentBench \cite{jiang2025medagentbench} & \checkmark & & \checkmark & \checkmark & & & 2025 & STARR \\
+        AgentClinic \cite{schmidgall2025agentclinicmultimodalagentbenchmark} & \checkmark & & \checkmark & \checkmark & & & 2025 & Simulated \\
         ER-REASON \cite{2025_er_reason} & \checkmark & & \checkmark & \checkmark & & & 2025 & MIMIC-IV \\
-        FHIR-AgentBench \cite{2025_fhir_agentbench} & \checkmark & & \checkmark & & & & 2025 & MIMIC-IV \\
-        MedAgentGym \cite{2025_medagentgym} & \checkmark & & \checkmark & & & & 2025 & Multiple \\
-        BRIDGE \cite{2025_bridge} & \checkmark & & & & & & 2025 & Multiple \\
-        TIMER \cite{2025_timer} & \checkmark & \checkmark & & & \checkmark & & 2025 & STARR \\
-        EHR-Bench \cite{2025_ehr_r1} & \checkmark & \checkmark & & \checkmark & & & 2025 & MIMIC-IV \\
-        HealthBench \cite{2025_healthbench} & \checkmark & & & & & & 2025 & Multiple \\
-        MedHelm \cite{2026_medhelm} & \checkmark & & & & & & 2026 & Multiple \\
+        FHIR-AgentBench \cite{2025_fhir_agentbench} & \checkmark & & \checkmark & & \checkmark & & 2025 & MIMIC-IV \\
+        MedAgentGym \cite{2025_medagentgym} & \checkmark & & \checkmark & \checkmark & & & 2025 & Multiple \\
+        TIMER \cite{2025_timer} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & & 2025 & STARR \\
+        EHR-Bench \cite{2025_ehr_r1} & \checkmark & \checkmark & \checkmark & \checkmark & & & 2025 & MIMIC-IV \\
         \midrule
         \textbf{LongMedBench} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 2026 & MIMIC-IV \\
         \bottomrule
@@ -42,26 +39,21 @@ This thesis presents the decision-making component of \textbf{LongMedBench}, a b
     }
 \end{table}
 
-Medical AI evaluation has evolved from static QA to interactive agent settings. First-generation benchmarks (MedBench \cite{2023_medbench}, PromptCBLUE \cite{2023_promptcblue}) tested knowledge recall from medical licensing exams. Second-generation work introduced real clinical data: EHRSQL \cite{lee2022ehrsql} pioneered text-to-SQL on structured EHR; FHIR-AgentBench \cite{2025_fhir_agentbench} extended this to interoperable FHIR standards; MedAlign \cite{2024_medalign} provided clinician-generated instruction-following tasks grounded in EHR data.
+Medical AI evaluation has evolved from static QA to interactive agent settings, as shown in Table~\ref{tab:med_bench}. Early benchmarks including MedBench \cite{2023_medbench} and PromptCBLUE \cite{2023_promptcblue} etc., tested LLm's knowledge recall from medical licensing exams. Second-generation work introduced real clinical data: EHRSQL \cite{lee2022ehrsql} pioneered text-to-SQL on structured EHR; FHIR-AgentBench \cite{2025_fhir_agentbench} extended this to interoperable FHIR standards; MedAlign \cite{2024_medalign} provided clinician-generated instruction-following tasks grounded in EHR data.
 
-Third-generation interactive agent benchmarks now dominate. MedAgentBench \cite{jiang2025medagentbench} introduced a virtual EHR environment with 300 clinician-written tasks. AgentClinic \cite{schmidgall2025agentclinicmultimodalagentbenchmark} added multimodal clinical encounters. ER-REASON \cite{2025_er_reason} focused on emergency room reasoning with structured subtasks. MedAgentGym \cite{2025_medagentgym} provided a scalable training environment for biomedical reasoning. Comprehensive evaluation suites like MedHelm \cite{2026_medhelm}, HealthBench \cite{2025_healthbench}, and BRIDGE \cite{2025_bridge} aggregate diverse tasks for holistic assessment.
+The above two categories assess the static capabilities of the model; however, real-world medical tasks are complicated. A series of agent-based evaluation frameworks have been designed, wherein researchers construct simulated environments that enable LLMs to interactively complete complex tasks. MedAgentBench \cite{jiang2025medagentbench} introduced a virtual EHR environment with 300 clinician-written tasks. AgentClinic \cite{schmidgall2025agentclinicmultimodalagentbenchmark} added multimodal clinical encounters. ER-REASON \cite{2025_er_reason} focused on emergency room reasoning with structured subtasks. MedAgentGym \cite{2025_medagentgym} provided a scalable training environment for biomedical reasoning.
 
-Despite this progress, a critical gap persists: all current medical benchmarks evaluate single-encounter behavior. Real clinical care spans dozens of visits over years, and a patient's current presentation cannot be understood in isolation from their clinical trajectory. Even agent-based benchmarks (MedAgentBench, AgentClinic) are bounded to one visit. Meanwhile, no existing medical benchmark systematically compares memory architectures (long-context vs.\ retrieval vs.\ agent memory) for clinical decision-making.
-
-Table~\ref{tab:med_bench} provides a systematic comparison along dimensions critical to longitudinal clinical AI.
-
-
+Despite this progress, a critical gap persists: all current medical benchmarks evaluate single-encounter behavior. Real clinical care spans dozens of visits over years, and a patient's current presentation cannot be understood in isolation from their clinical trajectory. Meanwhile, no existing medical benchmark systematically compares memory architectures of the AI agent for clinical decision-making.
 
 \section{Long-Horizon Benchmarks in the General Domain}
 
 In parallel with medical AI, a rich set of long-horizon benchmarks was presented in the general community of AI agents, as shown in Table~\ref{tab:gen_bench}. Their task design principles inspire the construction of longitudinal clinical benchmarks, which includes multi-turn interaction, cross-session memory, progressive information revelation. 
 
-\paragraph{Long-Context Retrieval.} RULER \cite{hsieh2024rulerwhatsrealcontext} systematically evaluates the effective context window of LLMs through synthetic tasks (needle-in-a-haystack, variable tracking) at controlled lengths up to 128K tokens. NarrativeQA \cite{kočiský2017narrativeqareadingcomprehensionchallenge} tests reading comprehension over full-length books and movie scripts, requiring models to answer questions that depend on information distributed across long documents. HotpotQA \cite{yang2018hotpotqa} requires reasoning across multiple documents to answer questions. 
+\paragraph{Long-Context Retrieval.} RULER \cite{hsieh2024rulerwhatsrealcontext} systematically evaluates the effective context window of LLMs through synthetic tasks like needle-in-a-haystack, variable tracking, etc., at controlled lengths up to 128K tokens. NarrativeQA \cite{kočiský2017narrativeqareadingcomprehensionchallenge} tests reading comprehension over full-length books and movie scripts, requiring models to answer questions that depend on information distributed across long documents. HotpotQA \cite{yang2018hotpotqa} requires reasoning across multiple documents to answer questions. 
 
-\paragraph{Multi-Hop and Multi-Turn Benchmarks.} Beyond basic retrieval challenges, to test whether models can reason across temporally structured information, LoCoMo \cite{loComo_reference} evaluates long-term conversational memory through multi-session dialogues, where models must recall and reason about information shared in earlier sessions. LongMemEval \cite{wu2024longmemeval} simulates long-term interactive memory in chat assistants, evaluating whether models can retain and use information shared across multiple dialogue sessions. Both introduce the concept of multi-hop reasoning, which parallels the clinical need to connect evidence across visits.
+\paragraph{Multi-Hop and Multi-Turn Benchmarks.} Beyond basic retrieval challenges, to test whether models can reason across temporally structured information, LoCoMo \cite{loComo_reference} and LongMemEval \cite{wu2024longmemeval} uses simulated multi-session dialogues to evaluate whether models can recall and reason about information shared in earlier sessions. Both introduce the concept of multi-hop reasoning, which parallels the clinical need to connect evidence across visits.
 
-\paragraph{Interactive Agent Benchmarks.} TRIP-Bench \cite{shen2026tripbenchbenchmarklonghorizoninteractive} evaluates agents on long-horizon interactive tasks in real-world scenarios, where agents must plan, execute, and adapt across extended interactions. AMA-Bench \cite{amabench2026} similarly benchmarks long-horizon memory for agentic applications, measuring how well agents retain and leverage information across prolonged task sequences. The paradigm where the agent receives environment feedback and must adjust its strategy over a temporally extended trajectory parallels LongMedBench's clinical decision-making setting: in both cases, the agent navigates a sequence of steps informed by all prior history, and evaluation centers on whether historical information is effectively integrated into next-step decisions.
-
+\paragraph{Interactive Agent Benchmarks.} TRIP-Bench \cite{shen2026tripbenchbenchmarklonghorizoninteractive} evaluates agents on executing long-horizon interactive tasks in real-world scenarios, where agents must plan, execute, and adapt across extended interactions. AMA-Bench \cite{amabench2026} benchmarks long-horizon memory for agentic applications, measuring how well agents retain and leverage information across prolonged task sequences. In both cases, the agent navigates a sequence of steps informed by all prior history, and evaluation centers on whether historical information is effectively integrated into next-step decisions. This paradigm inspires LongMedBench's clinical decision-making setting.
 \begin{table}[ht]
     \centering
 
@@ -92,7 +84,7 @@ In parallel with medical AI, a rich set of long-horizon benchmarks was presented
 
 To address the challenges exposed by long-horizon benchmarks, a parallel line of research has developed memory-augmented architectures that extend LLM capabilities beyond their native context windows. 
 
-\paragraph{Retrieval-Augmented Generation (RAG)} The foundational RAG paradigm \cite{lewis2020rag} augments LLM inference by retrieving relevant documents from an external knowledge base and prepending them to the context window. RAG separates memory storage (the indexed corpus) from inference, enabling scale beyond the context window at the cost of retrieval quality.
+\paragraph{Retrieval-Augmented Generation (RAG)} The foundational RAG paradigm \cite{lewis2020rag} augments LLM inference by retrieving relevant documents from an external knowledge base and prepending them to the context window, enabling scale beyond the context window at the cost of retrieval quality.
 
 \paragraph{Agent Memory Systems} Among agent-native memory frameworks, we adopt Mem0 \cite{mem0_reference} as the representative agent memory system in our experiments. Mem0 provides a persistent, evolvable memory layer with add, search, and update operations, occupying a practical middle ground: it is more persistent and agent-driven than retrieval-only RAG, yet simpler and more mature than research-stage frameworks, with a clean API well-suited for systematic ablation across memory granularities. MemGPT \cite{memgpt_reference} introduced an OS-inspired memory hierarchy with working and archival storage. More recent frameworks have pushed further: A-MEM \cite{amem2025} explicitly models agentic memory decisions, where the agent autonomously determines what to retain; EverMemOS \cite{evermemos2026} proposes a self-organizing memory operating system for structured long-horizon reasoning; and Memory as Action \cite{memoryasaction2025} reframes memory management as an action the agent takes, integrating it into the decision loop rather than treating it as preprocessing.
 
