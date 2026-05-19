@@ -5,17 +5,29 @@ This chapter presents the LongMedBench decision-making pipeline: from raw EHR da
 \section{EHR Data Processing Pipeline}
 \label{sec:pipeline}
 
-LongMedBench is constructed from MIMIC-IV \cite{PhysioNet-mimiciv-3.1}, a publicly available de-identified database containing comprehensive clinical data for over 100,000 patients at Beth Israel Deaconess Medical Center (2008--2019). The database includes structured tables and unstructured clinical notes. To convert this static relational database into an interactive agent-compatible environment, we design a three-stage pipeline.
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\textwidth]{images/dataset_pipeline.pdf}
+    \caption{Overview of the EHR data processing pipeline.}
+    \label{fig:pipeline}
+\end{figure}
+
+LongMedBench is constructed from MIMIC-IV v3.1 \cite{PhysioNet-mimiciv-3.1}, a publicly available de-identified database containing comprehensive clinical data for over 100,000 patients at Beth Israel Deaconess Medical Center (2008--2019). The database includes structured tables and unstructured clinical notes. To convert this static relational database into an interactive agent-compatible environment, we design a three-stage pipeline (Figure~\ref{fig:pipeline}).
 
 \subsection{Patient and Event Filtering}
 
-\textbf{Event-Level Filtering.} We retain only laboratory results flagged as abnormal. Normal lab values carry limited clinical signal for decision-making and inflate context without benefit.
+\paragraph{Event-Level Filtering.} We retain only laboratory results flagged as abnormal. Normal lab values carry limited clinical signal for decision-making and inflate context without benefit. Hager et al., demonstrated in MIMIC-CDM that presenting the model with only abnormal laboratory results generally improved diagnostic performance by allowing the model to focus more on abnormal, pathological signals \cite{hager2024evaluation}. This makes the evaluation more clinically realistic. Like real-world clinicians, the agent should reason from salient signals, not passively absorb all measurements.
 
-\textbf{Patient-Level Filtering.} We require complete admission and discharge records for all hospitalizations, and select patients with at least 15 recorded hospitalizations. This threshold yields trajectories with sufficient density for longitudinal reasoning evaluation.
+\paragraph{Patient-Level Filtering.} We require complete admission and discharge records for all hospitalizations, and select patients with at least 15 recorded hospitalizations. This threshold yields trajectories with sufficient density for longitudinal reasoning evaluation (discussed in Chapter~3).
 
-\textbf{Resulting Cohort.} The filtered dataset comprises \textbf{355 patients} with \textbf{6,999 inpatient visits}. Mean visits per patient: 19.72 (median = 18.00, SD = 5.72). Mean medical events per visit: 44.91 (median = 25.00, SD = 70.32). This dense multi-session structure challenges models on cross-visit memory retention and temporal reasoning.
+\paragraph{Resulting Cohort.} The filtered dataset comprises 355 patients with 6,999 inpatient visits. Mean visits per patient: 19.72 (median = 18.00, SD = 5.72). Mean medical events per visit: 44.91 (median = 25.00, SD = 70.32). The distribution of data is shown in Figure~\ref{fig:visit_distribution}. This dense multi-session structure challenges models on cross-visit memory retention and temporal reasoning.
 
-The $\ge 15$ hospitalization filter creates a high-acuity, chronic-disease subpopulation---patients with the most complex conditions requiring frequent care. This is precisely the population for whom longitudinal reasoning matters most, but findings may not generalize to lower-acuity settings (discussed in Chapter~3).
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\textwidth]{images/visit_distribution.pdf}
+    \caption{Distribution of visits per patient in the filtered cohort.}
+    \label{fig:visit_distribution}
+\end{figure}
 
 \subsection{Event Stream Construction}
 

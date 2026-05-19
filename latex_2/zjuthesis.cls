@@ -246,7 +246,7 @@
 
 \titlespacing*{\subsection}{0pt}{0pt}{5pt}
 \titleformat{\subsection}
-{\xiaosi}
+{\bfseries\xiaosi}
 {\thesubsection\;}
 {0pt}
 {}

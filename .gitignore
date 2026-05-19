@@ -17,7 +17,7 @@
 *.dvi
 *.ps
 *.eps
-*.pdf
+latex_2/main.pdf
 
 # Build directories
 _minted-* 
