@@ -10,7 +10,7 @@ The experimental results presented in Chapter~2 yield five key findings:
 
 \textbf{3. Memory augmentation does not improve decision-making.} This is the central finding. Neither RAG nor Mem0 provides significant improvement over the naive long-context baseline. In some conditions, augmentation slightly degrades performance.
 
-\textbf{4. Immediate context dominates historical context.} The $n=0$ baseline (Contextual Memory only, no history) achieves accuracy comparable to full-history conditions. Adding historical visits does not monotonically improve decisions.
+\textbf{4. Immediate context dominates historical context.} The $n=0$ baseline ($\mathcal{M}_C^{(j,T)}$ only, no history) achieves accuracy comparable to full-history conditions. Adding historical visits does not monotonically improve decisions.
 
 \textbf{5. Chain-of-thought can degrade performance.} For DeepSeek-v3.2, reasoning mode reduces accuracy from 0.607 to 0.593, likely because explicit reasoning induces conservatism that penalizes decisive action under exact-match evaluation.
 

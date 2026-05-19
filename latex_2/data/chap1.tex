@@ -137,7 +137,7 @@ Within the broader LongMedBench project, this thesis makes four contributions:
 \begin{enumerate}
     \item \textbf{EHR-to-Agent Data Pipeline.} A reproducible pipeline transforming raw MIMIC-IV \cite{PhysioNet-mimiciv-3.1} records into longitudinal event streams for interactive agent evaluation, yielding 355 patients and 6,999 hospitalization visits (mean 19.72 visits/patient, 44.91 medical events/visit).
     
-    \item \textbf{Three-Tier Memory Architecture.} A memory framework operating at three granularities, enabling systematic ablation of memory effects on decision quality: Note Memory (coarse-grained visit summaries), Event Memory (fine-grained structured event sequences), and Contextual Memory (immediate visit context).
+    \item \textbf{Three-Tier Memory Architecture.} A memory framework operating at three granularities, enabling systematic ablation of memory effects on decision quality: Note Memory $\mathcal{M}^{(i,j)}_N$ (coarse-grained visit summaries), Event Memory $\mathcal{M}^{(i,j)}_E$ (fine-grained structured event sequences), and Context Memory $\mathcal{M}_C^{(j,T)}$ (immediate visit context).
     
     \item \textbf{Long-Horizon Decision-Making Task.} An interactive evaluation protocol where the agent receives a partial patient trajectory through controlled memory and must predict the next clinical action from a predefined action space, with ground truth extracted from actual clinical records.
     

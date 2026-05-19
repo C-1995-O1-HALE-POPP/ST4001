@@ -17,13 +17,13 @@ LongMedBench is constructed from MIMIC-IV v3.1 \cite{PhysioNet-mimiciv-3.1}, a p
 
 \subsection{Data Preprocessing \& Event Filtering}
 
-\paragraph{Event-Level Filtering.} All structured clinical events are extracted from the \texttt{hosp} module, including laboratory measurements, microbiology cultures, medication prescriptions, and billing diagnoses and procedures. Among these, we retain only laboratory results flagged as abnormal; normal lab values are excluded. Microbiology cultures, medication prescriptions, and billing events are retained in full. The rationale for this selective filtering strategy is discussed in Chapter~3.
-
-\paragraph{Patient-Level Preprocessing.} We require each hospitalization to have a complete discharge summary from the \texttt{note} module whose timestamp aligns with the corresponding admission record in \texttt{hosp/admissions}; visits lacking a matched discharge note are excluded. From the remaining visits, we select patients with at least 15 recorded hospitalizations. The rationale for these filtering decisions is discussed in Chapter~3. 
+\paragraph{Event-Level Filtering.} All structured clinical events are extracted from the \texttt{hosp} module, including laboratory measurements, microbiology cultures, medication prescriptions, pharmacy bills, diagnoses and procedures. Among these, we retain only laboratory results flagged as abnormal; normal lab values are excluded. Other events are retained in full. The rationale for this selective filtering strategy is discussed in Chapter~3.
 
 From the \texttt{admissions} table, we decompose each hospitalization into two boundary events. The admission event captures the patient's demographics, chief complaint, and initial physical examination findings at intake. The discharge eventcaptures the discharge narrative and the final diagnoses recorded in \texttt{diagnoses\_icd}. 
 
-\paragraph{Note Preprocessing.} Radiology reports are converted to structured imaging events via regular expression parsing: the modality (e.g., CT, X-ray, MRI) and body region (e.g., chest, abdomen) are extracted as the action type and parameter, respectively, while the full report text is retained as the observation result. Discharge notes $N_i$ are decomposed into admission information $N_i^{adm}$ and discharge information $N_i^{dis}$, then attached to the corresponding admission or discharge events. Both summaries are preserved in narrative format for use in Note Memory (Section~\ref{sec:notemem}) and ground-truth extraction. 
+\paragraph{Patient-Level Preprocessing.} We require each hospitalization to have a complete discharge summary from the \texttt{note} module whose timestamp aligns with the corresponding admission record in \texttt{hosp/admissions}; visits lacking a matched discharge note are excluded. From the remaining visits, we select patients with at least 15 recorded hospitalizations. The rationale for these filtering decisions is discussed in Chapter~3. 
+
+\paragraph{Note Preprocessing.} Radiology reports are converted to structured imaging events via regular expression parsing: the modality \textit{(e.g., CT, X-ray, MRI)} and body region \textit{(e.g., chest, abdomen)} are extracted as the action type and parameter, respectively, while the full report text is retained as the observation result. Discharge notes $N_i$ are decomposed into admission information $N_i^{adm}$ and discharge information $N_i^{dis}$, then attached to the corresponding admission or discharge events. Both summaries are preserved in narrative format for use in Note Memory (Section~\ref{sec:notemem}) and ground-truth extraction. 
 
 \paragraph{Resulting Cohort.} The filtered dataset comprises 355 patients with 6,999 inpatient visits. Mean visits per patient: 19.72 (median = 18.00, SD = 5.72). Mean medical events per visit: 44.91 (median = 25.00, SD = 70.32). The distribution of data is shown in Figure~\ref{fig:visit_distribution}. This dense multi-session structure challenges models on cross-visit memory retention and temporal reasoning.
 
@@ -36,37 +36,37 @@ From the \texttt{admissions} table, we decompose each hospitalization into two b
 
 \subsection{Event Stream Construction}
 
-We transform filtered records into a unified, time-ordered event stream for each patient. A medical event denoted as $E^k_i = \{a^k_i, t^k_i, p^k_i, o^k_i\}$, where $a^k_i$ is the action type including \textit{imaging, lab test, medication, etc.}, as shown in Figure~\ref{fig:pipeline}, $t^k_i$ is the timestamp, $p^k_i$ is the action parameter (e.g., \textit{CT vs.\ X-ray for imaging}), and $o^k_i$ is the observation result, \textit{like a radiology report and lab values}.
+We transform filtered records into a unified, time-ordered event stream for each patient. A medical event is any discrete clinical occurrence extracted from the structured hospitalization data. Formally, the $k_\text{th}$ event in $\mathcal{V}_i$ is $E^k_i := \{a^k_i, t^k_i, p^k_i, o^k_i\}$, where $a^k_i$ is the action type from the clinical action space $\mathcal{A}$, \textit{including imaging, lab tests, medication, etc.}, $t^k_i$ is the timestamp, $p^k_i$ is the action parameter \textit{(e.g., CT, X-ray, etc. for imaging)}, and $o^k_i$ is the observation result \textit{(e.g., a radiology report)}.
 
 We define a visit as the period spanning from an admission event $E^{adm}_i$ to the corresponding discharge event $E^{dis}_i$. All other structured events occurring between these two timestamps are collected and ordered chronologically. Formally, each visit $\mathcal{V}_i$ can be represented as $\mathcal{V}_i = \{E^{adm}_i, E^1_i, E^2_i, \dots, E^m_i, E^{dis}_i\}$. The complete patient stream can therefore be denoted as $\mathcal{S_P} = \{\mathcal{V}_1, \mathcal{V}_2, \dots, \mathcal{V}_n\}$, where $n$ is the total number of visits.
 
 \section{Three-Tier Memory Architecture}
 \label{sec:memory}
 
-A central design principle is the controlled provision of historical clinical information. Rather than exposing the agent to the full patient history without control over format or retrieval, we define a three-tier memory architecture that systematically varies both the \emph{granularity} and the \emph{provision strategy} of historical information.
+A central design principle is the controlled provision of historical clinical information. We define a three-tier memory architecture that systematically varies both the granularity of historical information. Given the earliest historical visit $\mathcal{V}_i$, the current visit $\mathcal{V}_j$, and the current timestamp $T$, the agent's memory access is strictly bounded to prevent event leakage.
 
 \subsection{Note Memory (Coarse-Grained)}
 \label{sec:notemem}
 
-Note Memory consists of admission and discharge summaries ($N_i^{adm}$, $N_i^{dis}$) for each historical visit, presented as structured natural language text (200--500 words per visit) concatenated in chronological order. It is compact and preserves clinical narrative structure, but is inherently lossy: summarization discards fine-grained temporal and event-level details.
+$\mathcal{M}^{(i,j)}_N := \{N_i, N_{i+1}, \dots, N_{j-1}\}$, which contains continuous visit-level discharge summaries from $\mathcal{V}_i$ to $\mathcal{V}_{j-1}$. Note Memory is compact and preserves clinical narrative structure, emphasizing the global trajectory, but discards fine-grained temporal and event-level details.
 
 \subsection{Event Memory (Fine-Grained)}
 \label{sec:eventmem}
 
-Event Memory contains the complete structured event sequence for each historical visit---every lab test, medication, imaging study, and procedure with full action type, timestamp, parameters, and results. Events are presented as time-ordered JSON objects grouped by visit. Event Memory is information-complete, but its volume (mean 900 events across 20 visits) approaches or exceeds typical LLM context windows, creating a natural stress test for both long-context capabilities and retrieval strategies.
+$\mathcal{M}^{(i,j)}_E := \bigcup_{k=i}^{j-1} \mathcal{V}_k$, which contains all clinical events from $\mathcal{V}_i$ to $\mathcal{V}_{j-1}$. Events are flattened into a single chronological sequence, discarding visit-level boundaries and forming a unified patient trajectory. Event Memory is information-complete, but its volume (mean 900 events across 20 visits) approaches or exceeds typical LLM context windows, creating a natural stress test for both long-context capabilities and retrieval strategies.
 
-\subsection{Contextual Memory (Immediate)}
+\subsection{Context Memory (Immediate)}
 \label{sec:contextmem}
 
-Contextual Memory is limited to the current visit's partial event history (all events from admission up to the decision point). It represents the baseline information available at any decision point and is always provided to the agent. Historical memory (Note or Event) is the experimental variable, enabling isolation of the marginal contribution of history beyond the immediate clinical context.
+$\mathcal{M}_C^{(j,T)} := \{(r_0, m_0), (r_1, m_1), \dots, (r_P, m_P)\}$, where $r_k$ and $m_k$ denote the dialog role and message content, respectively. Any event $E_j^k$ in $\mathcal{V}_j$ with timestamp $t_j^k < T$ is transformed into an LLM-style conversation trajectory, simulating the agent's instant interaction state up to the decision point. Context Memory represents the baseline information always available to the agent. Historical memory ($\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$) is the experimental variable, enabling isolation of the marginal contribution of history beyond the immediate clinical context.
 
 \subsection{Memory Provision Strategies}
 
-Three strategies for providing historical memory are compared:
+Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent:
 
-\textbf{Naive Long-Context (Baseline).} All historical memory is provided in full within the model's context window, testing native long-context attention without external retrieval assistance.
+\textbf{Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance.
 
-\textbf{RAG.} Historical memory is externally indexed. At decision time, the current clinical context serves as a retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the current context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
+\textbf{RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval overcomes lost-in-the-middle effects.
 
 \textbf{Mem0 (Agent Memory).} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval.
 
@@ -77,7 +77,7 @@ The T3-D task evaluates an LLM agent's ability to make proactive clinical decisi
 
 \subsection{Task Formulation}
 
-At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Contextual Memory (current visit's partial history); (3) Historical Memory (prior visits, at controlled granularity and provision strategy); and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
+At each decision point, the agent receives: (1) a system prompt establishing clinical role and task instructions; (2) Context Memory $\mathcal{M}_C^{(j,T)}$; (3) Historical Memory ($\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$, at controlled granularity and provision strategy); and (4) a decision query directing the agent to predict the next clinical action. The agent outputs a predicted action $\hat{a}$ from the clinical action space $\mathcal{A}$, which is compared against ground-truth action $a^*$ extracted from actual records.
 
 \subsection{Action Space and Ground Truth}
 
@@ -107,7 +107,7 @@ We design a factorial ablation varying four factors:
 \begin{enumerate}
     \item \textbf{Memory Granularity:} Note Memory vs.\ Event Memory.
     \item \textbf{Provision Strategy:} Naive Long-Context vs.\ RAG vs.\ Mem0.
-    \item \textbf{Historical Depth ($n$):} Number of injected historical visits: $n \in \{0, 1, 2, 3, \infty\}$. $n=0$ provides Contextual Memory only (no history) as baseline.
+    \item \textbf{Historical Depth ($n$):} Number of injected historical visits: $n \in \{0, 1, 2, 3, \infty\}$. $n=0$ provides Context Memory $\mathcal{M}_C^{(j,T)}$ only (no history) as baseline.
     \item \textbf{Reasoning Mode:} Standard vs.\ chain-of-thought (DeepSeek-v3.2 only).
 \end{enumerate}
 
@@ -185,7 +185,7 @@ This is the central experimental question. Table~\ref{tab:architecture} presents
 
 \subsection{Historical Depth: Visit Injection Ablation}
 
-Table~\ref{tab:depth} shows performance as a function of injected historical visits ($n$). The $n=0$ baseline (Contextual Memory only, no history) is particularly informative.
+Table~\ref{tab:depth} shows performance as a function of injected historical visits ($n$). The $n=0$ baseline ($\mathcal{M}_C^{(j,T)}$ only, no history) is particularly informative.
 
 \begin{table}[!h]
     \centering
@@ -237,12 +237,12 @@ The experimental results converge on a coherent narrative: (1) Clinical decision
 To illustrate the decision-making task concretely, consider a representative patient from our cohort: a 68-year-old male with chronic kidney disease, type 2 diabetes, and hypertension, with 21 hospitalizations over five years. At a mid-visit decision point during his 15th admission (presenting with fever and elevated creatinine), the agent receives:
 
 \begin{itemize}
-    \item \textbf{Contextual Memory:} Admission event (fever, hypotension), initial lab results (elevated WBC, creatinine 2.8 mg/dL), and one prior imaging order (chest X-ray, pending result).
+    \item \textbf{Context Memory ($\mathcal{M}_C^{(j,T)}$):} Admission event (fever, hypotension), initial lab results (elevated WBC, creatinine 2.8 mg/dL), and one prior imaging order (chest X-ray, pending result).
     \item \textbf{Historical Memory (Event):} Events showing that during prior febrile episodes, the patient responded to vancomycin but developed acute kidney injury requiring dose adjustment; a CT abdomen from visit 12 revealed nephrolithiasis.
     \item \textbf{Decision Query:} ``Based on the patient's history and current status, what should be the next clinical action?''
 \end{itemize}
 
-The ground-truth action (from actual records) is ordering blood cultures and starting empiric vancomycin at renally adjusted dosing. An agent relying solely on Contextual Memory might order broad-spectrum antibiotics at standard dosing; an agent effectively integrating history would recognize the need for renal adjustment based on prior vancomycin-associated AKI and the current elevated creatinine. This case illustrates the type of decision where historical integration should change the answer---and where our benchmark can measure whether it does.
+The ground-truth action (from actual records) is ordering blood cultures and starting empiric vancomycin at renally adjusted dosing. An agent relying solely on $\mathcal{M}_C^{(j,T)}$ might order broad-spectrum antibiotics at standard dosing; an agent effectively integrating history would recognize the need for renal adjustment based on prior vancomycin-associated AKI and the current elevated creatinine. This case illustrates the type of decision where historical integration should change the answer---and where our benchmark can measure whether it does.
 
 \subsection{Discussion of Negative Results}
 
