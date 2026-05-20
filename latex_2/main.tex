@@ -7,6 +7,13 @@
 \usepackage[most]{tcolorbox}
 \usepackage{pdfpages}
 
+\fancypagestyle{PDFPageNumber}{
+    \fancyhf{}
+    \fancyfoot[C]{\xiaowu\thepage}
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
 \definecolor{PromptPurple}{HTML}{9D95C9}
 \definecolor{PromptBack}{HTML}{F3F2FA}
 
@@ -73,11 +80,20 @@
 % 直接插入参考文献，
 % \include{data/ref}
 
-\include{data/symbols}
+%\include{data/symbols}
 \include{data/appendix}
 \include{data/biography}
-\includepdf[pages=-]{TaskPlan.pdf}
-\includepdf[pages=-]{AssessmentFormOfSeniorThesis.pdf}
-\includepdf[pages=-]{onsite.pdf}
+\includepdf[
+    pages=-,
+    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{Task Plan of Thesis Project}}
+]{TaskPlan.pdf}
+\includepdf[
+    pages=-,
+    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{Assessment Form of Senior Thesis}}
+]{AssessmentFormOfSeniorThesis.pdf}
+\includepdf[
+    pages=-,
+    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{On-site Minutes of Oral Defense}}
+]{onsite.pdf}
 
 \end{document}
