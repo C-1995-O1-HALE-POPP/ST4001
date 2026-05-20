@@ -1,0 +1,17 @@
+{
+  "agent": "mem0_agent",
+  "qid": "P000007-V11-T0033-T3-N-0",
+  "qtype": "T3-N",
+  "question": "Which of the next step is most appropriate?",
+  "event_pred": ["order_labs"],
+  "note_pred": ["medication"],
+  "event_reason": "The patient has persistent severe electrolyte abnormalities (hypokalemia, hypocalcemia, hypomagnesemia), metabolic acidosis and rising creatinine despite ongoing replacement; repeating labs/ABG and electrolytes is the next appropriate step to assess response and guide further therapy.",
+  "note_reason": "The patient has a stool culture positive for Salmonella species and ongoing severe electrolyte abnormalities requiring continued IV/PO repletion and initiation/adjustment of targeted antimicrobial therapy in an immunocompromised host. Thus the immediate next step is medication management.",
+  "baseline": {
+    "event": ["order_labs"],
+    "note": ["order_labs"]
+  },
+  "gt": ["order_labs"],
+  "event_hit_gt": true,
+  "note_hit_gt": false
+}

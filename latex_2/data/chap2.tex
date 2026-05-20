@@ -97,11 +97,11 @@ where the decay factor decreases from $1.0$ at the target timestamp to $0.01$ af
 
 \subsection{Models}
 
-We evaluate three state-of-the-art LLMs: GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo. All are evaluated through their respective APIs with standardized prompts and default model configurations.
+We evaluate three state-of-the-art LLMs: GPT-5-mini \cite{gpt52}, DeepSeek-v3.2 \cite{deepseekai2025deepseekv32}, and Qwen-Turbo \cite{qwen3}. All are evaluated through their respective APIs with standardized prompts and default model configurations.
 
 \subsection{Agent Architectures}
 
-Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent: \textbf{ (1) Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance. \textbf{ (2) RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. \textbf{(3) Agent Memory System.} We integrate the Mem0 framework \cite{mem0}, providing a persistent, evolvable memory store to the agent. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. The design tests whether agentic memory management outperforms passive retrieval for action-oriented reasoning.
+Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent: \textbf{ (1) Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance. \textbf{ (2) RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. \textbf{(3) Agent Memory System.} We integrate the Mem0 framework \cite{mem0_reference}, providing a persistent, evolvable memory store to the agent. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. The design tests whether agentic memory management outperforms passive retrieval for action-oriented reasoning.
 
 \subsection{Experimental Conditions}
 
@@ -123,7 +123,7 @@ Qwen-Turbo serves as the primary ablation vehicle; key conditions are replicated
     \centering
     \caption{Long-context LLM performance on the LongMedBench Long-Horizon Reasoning Task. Argument = event argument prediction; Discharge = six-hour discharge decision; Action = next action-type prediction.}
     \label{tab:decision_overall}
-    {\fontsize{8}{9.2}\selectfont
+    {\fontsize{9}{10.5}\selectfont
     \setlength{\tabcolsep}{2pt}
     \renewcommand{\arraystretch}{1.05}
     \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}cccccccc}
@@ -152,7 +152,7 @@ Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test h
     \centering
     \caption{Qwen-Turbo ablation of historical visit injection and retrieval/memory architectures. The upper block varies injected visit depth; the lower block compares RAG and Mem0 over event and note memory.}
     \label{tab:decision_ablation}
-    {\fontsize{8}{9.2}\selectfont
+    {\fontsize{9}{10.5}\selectfont
     \setlength{\tabcolsep}{4pt}
     \renewcommand{\arraystretch}{1.05}
     \begin{tabular*}{\textwidth}{ll@{\extracolsep{\fill}}cccc}

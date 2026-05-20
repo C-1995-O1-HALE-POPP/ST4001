@@ -54,3 +54,5 @@ latexmkrc
 *.bak
 .*
 latex_2/tmp_reasoning_verify
+*/tmp*
+tmp*
