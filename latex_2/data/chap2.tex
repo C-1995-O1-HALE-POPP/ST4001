@@ -8,7 +8,7 @@ This chapter presents the LongMedBench long-horizon reasoning pipeline: from raw
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\textwidth]{images/dataset_pipeline.pdf}
-    \caption{Overview of the EHR data processing pipeline.}
+    \caption{LongMedBench EHR data processing pipeline from MIMIC-IV records to patient event streams.}
     \label{fig:pipeline}
 \end{figure}
 
@@ -24,7 +24,7 @@ The preprocessing stage converts MIMIC-IV records into the longitudinal substrat
 \begin{figure}[ht]
     \centering
     \includegraphics[width=\textwidth]{images/visit_distribution.pdf}
-    \caption{Distribution of visits per patient in the filtered cohort.}
+    \caption{Visit-count distribution in the filtered LongMedBench cohort.}
     \label{fig:visit_distribution}
 \end{figure}
 
@@ -61,7 +61,9 @@ Context Memory represents the baseline information always available to the agent
 
 \subsection{Task Formulation}
 
-For a sampled ground-truth event $E_i^{GT}$ in the current visit $\mathcal{V}_i$ with timestamp $t_i^{GT}$, the working context is defined as $S=\mathcal{M}_C^{(i,t_i^{GT})}$, containing all interaction history available before the target event. To ensure sufficient historical trajectory length, we only sample rounds where $n \ge 15$. The long-horizon memory is denoted as $M=\mathcal{M}^{(1,n)}_E$ or $M=\mathcal{M}^{(1,n)}_N$, depending on whether Event Memory or Note Memory is injected. We use template-based construction, to ensure task scalable while preserving a fixed decision interface across patients and visits. At inference time, the agent receives $S$, an instructional prompt, $M$, and $Q$. The prompt requires a rationale-before-decision format: the agent first writes an explicit rationale or reasoning trace in the JSON \texttt{reason} field, then returns the selected answer list in the JSON \texttt{answer} field. The final answer is therefore not only a text prediction but a clinical action or decision grounded in the original EHR event stream. The three subtasks are defined as follows:
+For a sampled ground-truth event $E_i^{GT}$ in the current visit $\mathcal{V}_i$ with timestamp $t_i^{GT}$, the working context is defined as $S=\mathcal{M}_C^{(i,t_i^{GT})}$, containing all interaction history available before the target event. To ensure sufficient historical trajectory length, we only sample rounds where $n \ge 15$. The long-horizon memory is denoted as $M=\mathcal{M}^{(1,n)}_E$ or $M=\mathcal{M}^{(1,n)}_N$, depending on whether Event Memory or Note Memory is injected. The multiple-choice query $Q$ is automatically constructed from templates over the structured EHR event stream: action templates instantiate candidate next clinical actions from $\mathcal{A}$, argument templates instantiate plausible event parameters such as laboratory panels or imaging modalities, and discharge templates convert the future discharge timestamp into a six-hour binary decision. This template-based construction makes the task scalable while preserving a fixed decision interface across patients and visits.
+
+At inference time, the agent receives $S$, an instructional prompt, $M$, and $Q$. The task is formulated as a \textbf{Long-Horizon Reasoning Task} because the model is explicitly required to reason before committing to the next clinical decision. Given the current context and injected historical memory, the model first produces an explicit chain-of-thought-style rationale in the JSON \texttt{reason} field and then returns the selected decision in the JSON \texttt{answer} field. This reason-then-act interface follows the general design philosophy of ReAct-style agents, where reasoning is used to support action selection \cite{yao2022react}. The final answer is therefore not only a text prediction but a clinical action or decision grounded in the original EHR event stream. The three subtasks are defined as follows:
 \begin{itemize}
     \item   \textbf{Next Action Prediction} asks the agent to predict the future event action type $a_i^{GT}$ from the clinical action space $\mathcal{A}$.
     \item   \textbf{Argument Prediction} asks the agent to predict the target event argument $p_i^{GT}$, such as which laboratory panels or imaging modality are most appropriate.
@@ -71,13 +73,13 @@ For a sampled ground-truth event $E_i^{GT}$ in the current visit $\mathcal{V}_i$
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{images/decision_making.pdf}
-    \caption{Illustration of the Long-Horizon Reasoning Task.}
+    \caption{Long-Horizon Reasoning Task interface for memory-augmented clinical agents.}
     \label{fig:decision_task}
 \end{figure}
 
 \subsection{Evaluation Metrics}
 
-Next Action Prediction and Discharge Decision are evaluated by classification accuracy, while Argument Prediction is evaluated by top-$k$ accuracy because multiple arguments may be clinically appropriate. For Next Action Prediction and Argument Prediction, LongMedBench additionally applies a time-decay scoring mechanism to avoid over-penalizing decisions which matches action occurs within 24h after the sampled timestamp. This design evaluates whether the model can make a temporally appropriate decision, rather than whether it can reproduce one exact event index. Let
+Next Action Prediction and Discharge Decision are evaluated by classification accuracy, while Argument Prediction is evaluated by top-$k$ accuracy because multiple arguments may be clinically appropriate. For Next Action Prediction and Argument Prediction, LongMedBench additionally applies a time-decay scoring mechanism to avoid over-penalizing decisions whose matching action occurs within 24 hours after the sampled timestamp. This design evaluates whether the model can make a temporally appropriate decision, rather than whether it can reproduce one exact event index. Let
 \[
 \mathcal{E}_{24h}=\{E_i^k \mid t_i^k\in[t_i^{GT},t_i^{GT}+24\mathrm{h}]\}.
 \]
@@ -95,11 +97,11 @@ where the decay factor decreases from $1.0$ at the target timestamp to $0.01$ af
 
 \subsection{Models}
 
-We evaluate three state-of-the-art LLMs: GPT-5-mini, DeepSeek-v3.2 (with and without its native thinking mode), and Qwen-Turbo. All are evaluated through their respective APIs with standardized prompts and default model configurations.
+We evaluate three state-of-the-art LLMs: GPT-5-mini, DeepSeek-v3.2, and Qwen-Turbo. All are evaluated through their respective APIs with standardized prompts and default model configurations.
 
 \subsection{Agent Architectures}
 
-Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent: \textbf{ (1) Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance. \textbf{ (2) RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. This tests whether selective retrieval \cite{lewis2020rag} overcomes long-context degradation and lost-in-the-middle effects \cite{liu2023lostmiddlelanguagemodels}. \textbf{(3) Agent Memory System.} We integrate the Mem0 framework \cite{mem0_reference,mem0}, providing a persistent, evolvable memory store to the agent. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. This tests whether agentic memory management outperforms passive retrieval for action-oriented reasoning.
+Given the fixed memory modules $\{\mathcal{M}^{(i,j)}_N, \mathcal{M}^{(i,j)}_E, \mathcal{M}_C^{(j,T)}\}$, three strategies control how historical memory is provided to the agent: \textbf{ (1) Naive Long-Context (Baseline).} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is provided in full within the model's context window alongside $\mathcal{M}_C^{(j,T)}$, testing native long-context attention without external retrieval assistance. \textbf{ (2) RAG.} $\mathcal{M}^{(i,j)}_N$ or $\mathcal{M}^{(i,j)}_E$ is externally indexed. At decision time, $\mathcal{M}_C^{(j,T)}$ serves as the retrieval query; top-$k$ relevant chunks are retrieved and concatenated with the context. \textbf{(3) Agent Memory System.} We integrate the Mem0 framework \cite{mem0}, providing a persistent, evolvable memory store to the agent. The agent can add, search, and update memory across a patient's trajectory, actively managing what is stored and retrieved. The design tests whether agentic memory management outperforms passive retrieval for action-oriented reasoning.
 
 \subsection{Experimental Conditions}
 
@@ -117,13 +119,9 @@ Qwen-Turbo serves as the primary ablation vehicle; key conditions are replicated
 \section{Results and Analysis}
 \label{sec:results}
 
-\subsection{Overall Decision-Making Performance Across Subtasks}
-
-Table~\ref{tab:decision_overall} summarizes long-horizon reasoning performance under the naive long-context setting, measured by the quality of the resulting clinical decisions or actions. We report all three subtasks rather than treating Discharge Decision as the entire benchmark. Across models, Discharge Decision is consistently easier than Next Action Prediction, while Argument Prediction falls between them. This separation is important: high discharge-decision accuracy does not imply strong longitudinal reasoning, action planning, or argument selection.
-
 \begin{table}[!h]
     \centering
-    \caption{Long-context LLM performance on the Long-Horizon Reasoning Task. Argument evaluates event argument prediction, Discharge evaluates six-hour discharge decision, and Action evaluates next action-type prediction.}
+    \caption{Long-context LLM performance on the LongMedBench Long-Horizon Reasoning Task. Argument = event argument prediction; Discharge = six-hour discharge decision; Action = next action-type prediction.}
     \label{tab:decision_overall}
     {\fontsize{8}{9.2}\selectfont
     \setlength{\tabcolsep}{2pt}
@@ -152,7 +150,7 @@ Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test h
 
 \begin{table}[!h]
     \centering
-    \caption{Ablation study on long-horizon reasoning using Qwen-Turbo. The left block varies injected visit history; the right block compares retrieval/memory architectures.}
+    \caption{Qwen-Turbo ablation of historical visit injection and retrieval/memory architectures. The upper block varies injected visit depth; the lower block compares RAG and Mem0 over event and note memory.}
     \label{tab:decision_ablation}
     {\fontsize{8}{9.2}\selectfont
     \setlength{\tabcolsep}{4pt}

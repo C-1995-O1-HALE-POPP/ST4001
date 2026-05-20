@@ -6,12 +6,12 @@ This appendix reorganizes the supplementary material around the benchmark artifa
 \section*{A1 Dataset Pipeline}
 \addcontentsline{toc}{section}{A1 Dataset Pipeline}
 
-The dataset pipeline starts from raw MIMIC-IV notes and structured tables, converts each admission into a typed clinical event stream, and then derives the current-visit interaction context used by the agentic decision task. The patient-level sequence file \texttt{bench\_data/patients\_sequence/P000001\_sequenced.json} contains 813 ordered events for Patient~P000001, including demographics, admissions, labs, microbiology, imaging, medications, procedures, and discharges.
+The dataset pipeline starts from raw MIMIC-IV notes and structured tables, converts each admission into a typed clinical event stream, and then derives the current-visit interaction context used by the agentic decision task. A representative patient-level sequence record contains 813 ordered events for Patient~P000001, including demographics, admissions, labs, microbiology, imaging, medications, procedures, and discharges.
 
 \subsection*{A1.1 Raw Discharge Note Example}
 \addcontentsline{toc}{subsection}{A1.1 Raw Discharge Note Example}
 
-The raw note table \texttt{raw\_data/note/discharge.csv} stores one discharge summary per row. A representative row has the schema \texttt{note\_id}, \texttt{subject\_id}, \texttt{hadm\_id}, \texttt{note\_type}, \texttt{note\_seq}, \texttt{charttime}, \texttt{storetime}, and \texttt{text}.
+The raw note table stores one discharge summary per row. A representative row has the schema \texttt{note\_id}, \texttt{subject\_id}, \texttt{hadm\_id}, \texttt{note\_type}, \texttt{note\_seq}, \texttt{charttime}, \texttt{storetime}, and \texttt{text}.
 
 \begin{promptblock}{Raw Discharge Note Row}
 note_id: 10000032-DS-21
@@ -176,7 +176,7 @@ MEDICATION P000001-V1-E4  2120-08-06 21:00:00
 \section*{A3 Question Generation}
 \addcontentsline{toc}{section}{A3 Question Generation}
 
-The agentic decision task uses three question templates generated from the current event prefix and future event stream. Examples below come from \texttt{tasks/agentic\_decision/questions\_generated/P000001.jsonl}.
+The agentic decision task uses three question templates generated from the current event prefix and future event stream. The examples below are representative generated questions for Patient~P000001.
 
 \begin{table}[!h]
     \centering
@@ -231,85 +231,202 @@ Each evaluation condition is defined by two axes: the historical memory source, 
 \section*{A5 Case Study}
 \addcontentsline{toc}{section}{A5 Case Study}
 
-This case study shows how one decision instance is answered under different memory configurations. It includes the original Context Memory excerpt and the original question, but omits file indexes, retrieval indexes, and source-path metadata.
+This section provides concrete qualitative cases that explain why aggregate accuracy changes are small even when memory configuration changes individual decisions. Each case is centered on the original interaction-style JSON. Explanatory text is included only to summarize the behavioral pattern illustrated by the JSON.
 
-\paragraph{Case identifier and task.}
-The instance is \texttt{P000001-V12-T0002-T3-N-0}, a T3-N Next Action Prediction question at \texttt{2121-12-16 19:10:00}. The ground truth is \texttt{order\_imaging} with weight 1.0.
+A read-only inspection of the analysis artifacts showed that event and note memories often change model outputs even when the overall benchmark average remains close. In the shared 2,202-question overlap, event--note prediction changes occurred in 662 questions for the long-context agent (30.06\%), 807 questions for Mem0 (36.65\%), and 740 questions for RAG (33.61\%). The cases below therefore focus on how those changes arise rather than treating the mean score as the only evidence.
 
-\begin{promptblock}{Original ContextMemory Excerpt}
-system: You are a doctor agent. You can perform these semantic actions:
-ask_question, order_labs, order_microbiology, order_imaging,
-perform_procedure, medication, discharge. The environment returns only
-information that exists in this admission record; otherwise it returns
-not_available. Do not invent new findings.
-
-user: Gender: M. Age at first visit: 48. Language: Spanish. Marital
-status: SINGLE. Race: HISPANIC/LATINO - DOMINICAN. Chief complaint:
-Chest Pa. HPI: ___ year old male with HCV and EtOH cirrhosis on the
-transplant list, complicated by ___ s/p TACE x2 and RFA and ascites,
-and recurrent C. difficile colitis, presents with increasing abdominal
-distention, bilateral lower extremity swelling, and occasional
-non-pleuritic, non-exertional chest pain for 3 days. ...
-
-assistant: {
-  "reason": "The patient has atypical chest pain and bilateral lower
-             extremity edema, warranting a chest X-ray to evaluate for
-             possible pulmonary causes.",
-  "action": "order_imaging",
-  "args": {"modality": "xray", "target": "chest",
-           "timestamp": "2121-12-16 19:05:00"}
+\paragraph{Case 1: Retrieval helps when local evidence reinforces the current trajectory.}
+\begin{promptblock}{Original Interaction JSON: P000001-V12-T0002-T3-N-0}
+{
+  "qid": "P000001-V12-T0002-T3-N-0",
+  "qtype": "T3-N",
+  "timestamp": "2121-12-16 19:10:00",
+  "question": "Which of the next step is most appropriate?",
+  "options": [
+    "perform_procedure",
+    "medication",
+    "ask_question",
+    "order_microbiology",
+    "order_labs",
+    "order_imaging"
+  ],
+  "answer": {"order_imaging": 1.0},
+  "context_messages": [
+    {
+      "role": "system",
+      "content": "You are a doctor agent. You can perform these semantic actions: ask_question, order_labs, order_microbiology, order_imaging, perform_procedure, medication, discharge. The environment returns only information that exists in this admission record; otherwise it returns not_available. Do not invent new findings."
+    },
+    {
+      "role": "user",
+      "content": "Gender: M. Age at first visit: 48. Chief complaint: Chest Pa. HPI: male with HCV and EtOH cirrhosis on the transplant list, complicated by HCC s/p TACE/RFA and ascites, recurrent C. difficile colitis, increasing abdominal distention, bilateral lower extremity swelling, and occasional non-pleuritic, non-exertional chest pain for 3 days."
+    },
+    {
+      "role": "assistant",
+      "content": {
+        "reason": "Atypical chest pain and bilateral lower extremity edema warrant chest X-ray evaluation.",
+        "action": "order_imaging",
+        "args": {"modality": "xray", "target": "chest", "timestamp": "2121-12-16 19:05:00"}
+      }
+    },
+    {"role": "environment", "content": "chest xray -> Limited, negative."},
+    {
+      "role": "assistant",
+      "content": {
+        "reason": "Bilateral lower extremity edema warrants Doppler ultrasound to evaluate for deep vein thrombosis.",
+        "action": "order_imaging",
+        "args": {"modality": "doppler", "target": "free text body part", "timestamp": "2121-12-16 19:10:00"}
+      }
+    },
+    {"role": "environment", "content": "free text body part doppler -> Addendum: A limited Color Doppler and Spectral Analysis Study was also performed."}
+  ],
+  "predictions": {
+    "note_context": {"answer": ["order_labs"], "score": 0.0},
+    "event_context": {"answer": ["order_labs"], "score": 0.0},
+    "note_rag": {"answer": ["order_imaging"], "score": 1.0},
+    "event_rag": {"answer": ["order_imaging"], "score": 1.0},
+    "note_mem0": {"answer": ["order_labs"], "score": 0.0},
+    "event_mem0": {"answer": ["order_labs"], "score": 0.0}
+  }
 }
-
-environment: chest xray -> Limited, negative.
-
-assistant: {
-  "reason": "The patient has bilateral lower extremity edema,
-             warranting a Doppler ultrasound to evaluate for deep vein
-             thrombosis.",
-  "action": "order_imaging",
-  "args": {"modality": "doppler", "target": "free text body part",
-           "timestamp": "2121-12-16 19:10:00"}
-}
-
-environment: free text body part doppler -> Addendum: A limited Color
-Doppler and Spectral Analysis Study was also performed.
 \end{promptblock}
 
-\begin{promptblock}{Original Question}
-qid: P000001-V12-T0002-T3-N-0
-visit_id: P000001-V12
-timestamp: 2121-12-16 19:10:00
-qtype: T3-N
-question: Which of the next step is most appropriate?
-options:
-  - perform_procedure
-  - medication
-  - ask_question
-  - order_microbiology
-  - order_labs
-  - order_imaging
-answer: {"order_imaging": 1.0}
+RAG succeeds because the retrieved material reinforces the current imaging trajectory, while Mem0 retrieves clinically plausible but temporally mismatched memories that answer a different situation.
+
+\paragraph{Case 2: More memory is not always better.}
+\begin{promptblock}{Original Interaction JSON: P000003-V16-T0009-T3-N-0}
+{
+  "memory_type": "event",
+  "qid": "P000003-V16-T0009-T3-N-0",
+  "qtype": "T3-N",
+  "question": "Which of the next step is most appropriate?",
+  "gt": ["medication"],
+  "baseline": ["order_labs"],
+  "baseline_reason": "The patient is undergoing R-ICE chemotherapy and has abnormal lab results, indicating the need for further laboratory testing to monitor for potential complications.",
+  "preds": {
+    "ctx0": ["medication"],
+    "ctx2": ["medication"],
+    "ctx5": ["order_labs"]
+  },
+  "reasons": {
+    "ctx0": "The patient has abnormal lab results and is receiving chemotherapy, so ordering furosemide is necessary to manage potential fluid overload or related complications.",
+    "ctx2": "The patient has abnormal lab results and is receiving chemotherapy, so ordering furosemide is necessary to manage potential fluid overload or related complications.",
+    "ctx5": "The patient is undergoing R-ICE chemotherapy and has abnormal lab results, indicating the need for further laboratory testing to monitor for potential complications."
+  }
+}
 \end{promptblock}
+
+The zero-visit and two-visit contexts choose the correct action, but the five-visit context shifts back to laboratory monitoring. This is a non-monotonic context-length effect: adding history can dilute the current action signal rather than clarify it.
+
+\paragraph{Case 3: Event memory can preserve action-relevant signals.}
+\begin{promptblock}{Original Interaction JSON: P000002-V15-T0031-T3-N-0}
+{
+  "agent": "agentic_decision",
+  "qid": "P000002-V15-T0031-T3-N-0",
+  "qtype": "T3-N",
+  "question": "Which of the next step is most appropriate?",
+  "event_pred": ["medication"],
+  "note_pred": ["order_labs"],
+  "event_reason": "The patient has abnormal lab results and a positive respiratory culture, requiring targeted antibiotic therapy based on susceptibility results. Therefore, the most appropriate next step is to administer medication.",
+  "note_reason": "The patient has multiple abnormal lab results and a positive respiratory culture, indicating the need for further diagnostic evaluation and targeted treatment. Ordering labs will help guide management.",
+  "gt": ["medication"]
+}
+\end{promptblock}
+
+Both memories recognize abnormal labs and a positive culture, but event memory converts that evidence into the next intervention whereas note memory remains at diagnostic evaluation.
+
+\paragraph{Case 4: Retrieved memory can override the current clinical target.}
+\begin{promptblock}{Original Interaction JSON: P000001-V12-T0002-T3-A-1}
+{
+  "memory_type": "note",
+  "qid": "P000001-V12-T0002-T3-A-1",
+  "qtype": "T3-A",
+  "question": "Which imaging order is most appropriate next?",
+  "gt": ["XRAY abdomen"],
+  "baseline": ["XRAY abdomen"],
+  "baseline_reason": "The patient has bilateral lower extremity edema, which is more consistent with a systemic condition such as liver disease or heart failure rather than a localized issue in the extremities. Therefore, an imaging study of the abdomen would be more appropriate to evaluate for underlying causes such as ascites or liver pathology.",
+  "preds": {
+    "llm_agent": ["XRAY abdomen"],
+    "mem0_agent": ["CT head"],
+    "rag_agent": ["CT chest"]
+  },
+  "reasons": {
+    "llm_agent": "The patient has bilateral lower extremity edema, which is more consistent with a systemic condition such as liver disease or heart failure rather than a localized issue in the extremities. Therefore, an imaging study of the abdomen would be more appropriate to evaluate for underlying causes such as ascites or liver pathology.",
+    "mem0_agent": "Patient has a reported headache during this admission and a noncontrast CT head is the most appropriate initial, rapid study to evaluate acute intracranial causes. Other abdominal and chest imaging have recently been performed and are less relevant to the new symptom.",
+    "rag_agent": "The patient has chest pain with a limited/negative chest x-ray and a nondiagnostic/limited lower-extremity Doppler; the next appropriate study to evaluate for pulmonary embolism or other intrathoracic causes is a CT chest."
+  }
+}
+\end{promptblock}
+
+Mem0 and RAG retrieve recognizable clinical signals, but those signals redirect the answer away from the abdominal ascites and liver-pathology trajectory that supports the ground-truth order.
+
+\paragraph{Case 5: Retrieval can correct an immediate-context error.}
+\begin{promptblock}{Original Interaction JSON: P000001-V20-T0002-T3-N-0}
+{
+  "memory_type": "note",
+  "qid": "P000001-V20-T0002-T3-N-0",
+  "qtype": "T3-N",
+  "question": "Which of the next step is most appropriate?",
+  "gt": ["order_labs"],
+  "baseline": ["order_imaging"],
+  "baseline_reason": "The patient has a history of HCC and cirrhosis, and the current presentation includes right upper quadrant pain and abdominal distention. An ultrasound of the right upper quadrant is needed to evaluate for possible complications.",
+  "preds": {
+    "llm_agent": ["order_imaging"],
+    "mem0_agent": ["order_labs"],
+    "rag_agent": ["order_labs"]
+  },
+  "reasons": {
+    "llm_agent": "The patient has a history of HCC and cirrhosis, and the current presentation includes right upper quadrant pain and abdominal distention. An ultrasound of the right upper quadrant is needed to evaluate for possible complications.",
+    "mem0_agent": "RUQ ultrasound excluded biliary obstruction but the patient has cirrhosis, ascites, and was being evaluated for infection; laboratory studies are needed to assess for leukocytosis, renal/hepatic function, and guide further management.",
+    "rag_agent": "Right upper quadrant ultrasound excluded biliary obstruction/choledocholithiasis. The patient with cirrhosis, splenomegaly, and perihepatic ascites needs laboratory evaluation to assess for infection, hepatic decompensation, and guide need for paracentesis or other interventions."
+  }
+}
+\end{promptblock}
+
+This positive case shows that memory can help when it supplies a completed prior diagnostic step that changes the next action.
+
+\paragraph{Case 6: Note memory can over-emphasize narrative diagnosis.}
+\begin{promptblock}{Original Interaction JSON: P000007-V11-T0033-T3-N-0}
+{
+  "agent": "mem0_agent",
+  "qid": "P000007-V11-T0033-T3-N-0",
+  "qtype": "T3-N",
+  "question": "Which of the next step is most appropriate?",
+  "event_pred": ["order_labs"],
+  "note_pred": ["medication"],
+  "event_reason": "The patient has persistent severe electrolyte abnormalities (hypokalemia, hypocalcemia, hypomagnesemia), metabolic acidosis and rising creatinine despite ongoing replacement; repeating labs/ABG and electrolytes is the next appropriate step to assess response and guide further therapy.",
+  "note_reason": "The patient has a stool culture positive for Salmonella species and ongoing severe electrolyte abnormalities requiring continued IV/PO repletion and initiation/adjustment of targeted antimicrobial therapy in an immunocompromised host. Thus the immediate next step is medication management.",
+  "baseline": {
+    "event": ["order_labs"],
+    "note": ["order_labs"]
+  },
+  "gt": ["order_labs"],
+  "event_hit_gt": true,
+  "note_hit_gt": false
+}
+\end{promptblock}
+
+The note-memory answer foregrounds a high-level infectious diagnosis, whereas the event-memory answer preserves the immediate monitoring need caused by severe electrolyte and acid-base abnormalities.
 
 \begin{table}[!h]
     \centering
-    \caption{Different memory configurations produce different answers for the same case.}
-    \label{tab:appendix_case_predictions}
+    \caption{Qualitative patterns illustrated by the A5 cases.}
+    \label{tab:appendix_case_patterns}
     {\fontsize{7.2}{8.4}\selectfont
-    \setlength{\tabcolsep}{2.5pt}
-    \renewcommand{\arraystretch}{1.18}
-    \begin{tabular*}{\textwidth}{p{0.15\textwidth}@{\extracolsep{\fill}}p{0.14\textwidth}p{0.09\textwidth}p{0.54\textwidth}}
+    \setlength{\tabcolsep}{3pt}
+    \renewcommand{\arraystretch}{1.16}
+    \begin{tabular*}{\textwidth}{p{0.22\textwidth}@{\extracolsep{\fill}}p{0.18\textwidth}p{0.22\textwidth}p{0.30\textwidth}}
         \toprule
-        \textbf{Configuration} & \textbf{Answer} & \textbf{Score} & \textbf{Reasoning excerpt} \\
+        \textbf{Case} & \textbf{Ground truth} & \textbf{Main contrast} & \textbf{Interpretation} \\
         \midrule
-        Note + context & \texttt{order\_labs} & 0.0 & Chest pain and bilateral leg edema with limited Doppler and negative chest X-ray suggest laboratory evaluation such as CBC, BMP, troponin, BNP, coagulation, and LFTs. \\
-        Event + context & \texttt{order\_labs} & 0.0 & Chest pain with bilateral leg edema and a limited negative chest X-ray leads the model to cardiac and heart-failure labs rather than repeat imaging. \\
-        Note + RAG & \texttt{order\_imaging} & 1.0 & Bilateral lower-extremity edema and an indeterminate Doppler addendum motivate repeat or complete venous imaging for DVT evaluation. \\
-        Event + RAG & \texttt{order\_imaging} & 1.0 & The limited Doppler report gives no diagnostic interpretation; definitive imaging such as complete venous duplex is selected. \\
-        Note + Mem0 & \texttt{order\_labs} & 0.0 & Retrieved memory emphasizes crossmatching blood before endoscopy, shifting the answer toward type-and-cross laboratory testing. \\
-        Event + Mem0 & \texttt{order\_labs} & 0.0 & Retrieved memory emphasizes possible lumbar puncture and abnormal coagulation values, shifting the answer toward coagulation and related labs. \\
+        \texttt{P000001-V12-T0002-T3-N-0} & \texttt{order\_imaging} & RAG correct; context and Mem0 incorrect & Retrieval helps when it reinforces the current imaging trajectory. \\
+        \texttt{P000003-V16-T0009-T3-N-0} & \texttt{medication} & ctx0/ctx2 correct; ctx5 incorrect & Longer history can dilute the action signal. \\
+        \texttt{P000002-V15-T0031-T3-N-0} & \texttt{medication} & event correct; note incorrect & Event memory can preserve action-level evidence better than narrative notes. \\
+        \texttt{P000001-V12-T0002-T3-A-1} & \texttt{XRAY abdomen} & baseline correct; Mem0/RAG incorrect & Retrieved memories can be plausible but target the wrong clinical thread. \\
+        \texttt{P000001-V20-T0002-T3-N-0} & \texttt{order\_labs} & baseline incorrect; Mem0/RAG correct & Memory helps when prior completed workup changes the next action. \\
+        \texttt{P000007-V11-T0033-T3-N-0} & \texttt{order\_labs} & event correct; note incorrect & Notes may over-emphasize diagnosis while events preserve monitoring needs. \\
         \bottomrule
     \end{tabular*}}
 \end{table}
 
-The case highlights two behaviors. First, RAG succeeds here because retrieved evidence reinforces the local imaging trajectory. Second, Mem0 can retrieve clinically plausible but temporally mismatched memories; those memories produce coherent rationales but answer a different clinical situation from the current decision point.
+Taken together, these cases support the retrieval--reasoning gap discussed in Chapter~3. Memory changes the information available to the agent, but the model still has to decide whether that information is current, action-relevant, and causally connected to the next clinical step. The same mechanism can therefore improve one instance, harm another, and leave the aggregate average nearly unchanged.
+
