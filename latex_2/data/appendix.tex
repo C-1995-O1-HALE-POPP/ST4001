@@ -1,208 +1,315 @@
 \centerline{\xiaoyi\bf Appendix}
 \addcontentsline{toc}{chapter}{Appendix}
 
-\section*{A. LongMedBench Pipeline and Artifact Card}
-\addcontentsline{toc}{section}{A. LongMedBench Pipeline and Artifact Card}
+This appendix reorganizes the supplementary material around the benchmark artifacts used to construct and evaluate LongMedBench. Code-like artifacts are shown in shaded blocks with a colored header. Long notes, reports, and model responses are shortened only for readability while preserving the original schema and decision content.
 
-This appendix documents the implementation pipeline used to construct the Long-Horizon Reasoning Task data and run agent evaluation. The project artifacts are hosted on the cloud server under \texttt{/data/lab/LongMedBench}. Following common supplementary-material practice in top AI conferences, the appendix separates reproducibility metadata, pipeline stages, prompting interfaces, and qualitative evidence rather than listing source filenames in prose.
+\section*{A1 Dataset Pipeline}
+\addcontentsline{toc}{section}{A1 Dataset Pipeline}
 
-\subsection*{A.1 Reproducibility Card}
-\addcontentsline{toc}{subsection}{A.1 Reproducibility Card}
+The dataset pipeline starts from raw MIMIC-IV notes and structured tables, converts each admission into a typed clinical event stream, and then derives the current-visit interaction context used by the agentic decision task. The patient-level sequence file \texttt{bench\_data/patients\_sequence/P000001\_sequenced.json} contains 813 ordered events for Patient~P000001, including demographics, admissions, labs, microbiology, imaging, medications, procedures, and discharges.
 
-\begin{table}[!h]
-    \centering
-    \caption{Reproducibility card for the LongMedBench long-horizon reasoning pipeline.}
-    \label{tab:appendix_artifact_card}
-    {\fontsize{8}{9.2}\selectfont
-    \setlength{\tabcolsep}{3pt}
-    \renewcommand{\arraystretch}{1.15}
-    \begin{tabular*}{\textwidth}{p{0.22\textwidth}@{\extracolsep{\fill}}p{0.70\textwidth}}
-        \toprule
-        \textbf{Item} & \textbf{Description} \\
-        \midrule
-        Cloud location & The codebase and generated artifacts are stored at \texttt{/data/lab/LongMedBench} on the project server. \\
-        Data source & MIMIC-IV v3.1 supplies hospitalization records, structured clinical events, radiology reports, discharge summaries, and ICU chart events. \\
-        Cohort rule & Patients are retained only when all admissions have matched discharge summaries and the longitudinal trajectory contains at least \texttt{MIN\_VISITS=15} hospitalizations. \\
-        Benchmark scale & The current filtered cohort contains 355 patients and 6,999 inpatient visits, yielding dense multi-visit trajectories for long-horizon evaluation. \\
-        Memory types & Note Memory summarizes prior visits, Event Memory preserves structured event streams, and Context Memory stores the current-visit interaction state before the decision point. \\
-        Evaluation modes & Runs vary model family, historical-memory type, and memory provision strategy, including long-context prompting, retrieval augmentation, and agent-managed memory. \\
-        \bottomrule
-    \end{tabular*}}
-\end{table}
+\subsection*{A1.1 Raw Discharge Note Example}
+\addcontentsline{toc}{subsection}{A1.1 Raw Discharge Note Example}
 
-\begin{table}[!h]
-    \centering
-    \caption{Pipeline stages for constructing LongMedBench long-horizon reasoning data.}
-    \label{tab:appendix_pipeline_stages}
-    {\fontsize{8}{9.2}\selectfont
-    \setlength{\tabcolsep}{3pt}
-    \renewcommand{\arraystretch}{1.15}
-    \begin{tabular*}{\textwidth}{p{0.18\textwidth}@{\extracolsep{\fill}}p{0.28\textwidth}p{0.44\textwidth}}
-        \toprule
-        \textbf{Stage} & \textbf{Implementation layer} & \textbf{Output and role} \\
-        \midrule
-        Raw EHR ingestion & Structured hospitalization, note, and ICU modules & Admissions, diagnoses, medications, procedures, microbiology, radiology reports, discharge summaries, laboratory records, and ICU warning events provide the raw clinical substrate. \\
-        Patient and event filtering & Cohort filtering and event normalization layer & Patients are retained under the longitudinal-trajectory rule above. Event preprocessing keeps abnormal ICU warning events and abnormal laboratory rows while preserving other structured event types downstream. \\
-        Event stream construction & Visit-level event conversion layer & Each visit is converted into a chronologically ordered stream of typed clinical events, with admission and discharge boundaries, structured actions, timestamps, and event arguments. \\
-        Memory dataset generation & Note slicing and context construction layer & Discharge summaries are sliced into admission and discharge fields, while structured events are serialized into context messages. These artifacts instantiate Note Memory, Event Memory, and Context Memory. \\
-        Question generation & Reasoning-task construction layer & For each visit prefix, the benchmark constructs Next Action Prediction, Argument Prediction, and Discharge Decision questions from future events and discharge timing. \\
-        \bottomrule
-    \end{tabular*}}
-\end{table}
+The raw note table \texttt{raw\_data/note/discharge.csv} stores one discharge summary per row. A representative row has the schema \texttt{note\_id}, \texttt{subject\_id}, \texttt{hadm\_id}, \texttt{note\_type}, \texttt{note\_seq}, \texttt{charttime}, \texttt{storetime}, and \texttt{text}.
 
-The benchmark output follows a patient-centered artifact schema. Each retained patient has a static patient profile, a sequence of visit records, and generated decision questions indexed by visit and target timestamp. The organization is designed so that an evaluator can reconstruct, for any question, the current interaction context, the historical memory condition, the candidate options, the ground truth, and the model reply.
+\begin{promptblock}{Raw Discharge Note Row}
+note_id: 10000032-DS-21
+subject_id: 10000032
+hadm_id: 22595853
+note_type: DS
+charttime: 2180-05-07 00:00:00
+storetime: 2180-05-09 15:26:00
+text: Name: ___  Unit No: ___
+Admission Date: ___  Discharge Date: ___
+Service: MEDICINE
+Allergies: No Known Allergies / Adverse Drug Reactions
+Chief Complaint: Worsening ABD distension and pain
+Major Surgical or Invasive Procedure: Paracentesis
+History of Present Illness: ___ HCV cirrhosis c/b ascites,
+hiv on ART, h/o IVDU, COPD, bipolar, PTSD, presented from OSH ED
+with worsening abdominal distension and pain ...
+\end{promptblock}
 
-\subsection*{A.2 Agent Prompt and Memory Interfaces}
-\addcontentsline{toc}{subsection}{A.2 Agent Prompt and Memory Interfaces}
+During preprocessing, admission-facing fields such as chief complaint and history of present illness initialize the current visit, while discharge-facing fields become visit-level Note Memory for later visits.
 
-The agent prompt exposes a small action space: \texttt{ask\_question}, \texttt{order\_labs}, \texttt{order\_microbiology}, \texttt{order\_imaging}, \texttt{perform\_procedure}, \texttt{medication}, and \texttt{discharge}. The memory labels map previous-visit discharge summaries to Note Memory, chronologically ordered previous-visit events to Event Memory, and completed current-visit dialogue state to Context Memory.
+\subsection*{A1.2 Structured Admission and Discharge Events}
+\addcontentsline{toc}{subsection}{A1.2 Structured Admission and Discharge Events}
 
-The direct question-answering system prompt is:
-\begin{verbatim}
-Now you are asked to answer agentic-desision questions without interacting with
-the environment; in that case, you should answer based on the admission record
-and NOT perform any environment actions.
-Your message MUST be a JSON object with keys: {reason, answer}.
-The answer should be a list containing only provided option from the question.
-You should return the raw text of the option(s) as the answer, not the label
-(e.g., "A", "B", ...). If multiple options are selected, include all of them
-in the list. The reason should be a brief explanation based on the context and
-admission history.
-\end{verbatim}
-For interactive use, the companion action prompt requires a JSON object with \texttt{reason}, \texttt{action}, and \texttt{args}; for benchmark question answering, the agent must not call environment actions and must instead return \texttt{reason} and \texttt{answer}. This ReAct-inspired, rationale-before-decision interface makes the model state an explicit reason before selecting the answer, while preventing it from inventing new observations and still allowing it to use the serialized admission record and selected historical memory.
+In the sequenced patient file, a visit is represented by explicit boundary events. For example, the first retained visit of P000001 begins with an admission event and ends with a discharge event.
 
-\subsection*{A.3 Medical Event to Context Memory Conversion}
-\addcontentsline{toc}{subsection}{A.3 Medical Event to Context Memory Conversion}
-
-Context Memory converts a medical event into a dialogue-style trace between the agent and the clinical environment. The conversion uses the action type as the assistant-side decision, the structured argument as the action arguments, and the observation text as the environment-side response. Timestamps are retained so that the resulting context can be truncated strictly before the target event.
-
-The prompt used for this conversion can be summarized as follows:
-\begin{verbatim}
-You are converting an electronic health record event into an interaction memory
-for a medical decision-making agent.
-
-Input:
-- event_type: one of ask_question, order_labs, order_microbiology,
-  order_imaging, perform_procedure, medication, discharge
-- timestamp: the clinical event time
-- arguments: structured event arguments, such as medication name, lab panel,
-  imaging modality, or procedure name
-- observation: the clinical result, report text, or environment feedback
-
-Output a JSON array of dialogue messages. Use the assistant role for the action
-selected by the agent and the environment role for the observed result. Preserve
-the timestamp, do not infer new clinical facts, and keep the wording faithful to
-the input event.
-
-Expected output schema:
-[
-  {
-    "role": "assistant",
-    "timestamp": "<event timestamp>",
-    "action": "<event_type>",
-    "args": { ... }
-  },
-  {
-    "role": "environment",
-    "timestamp": "<event timestamp>",
-    "content": "<observation>"
-  }
-]
-\end{verbatim}
-
-The conversion process has four steps: first, normalize the event into the benchmark action space; second, serialize the action arguments without adding clinical interpretation; third, attach the observation as an environment message; and fourth, sort all messages by timestamp before sampling the decision point. This design makes Context Memory an interaction history rather than an additional historical-memory condition.
-
-\subsection*{A.4 Question Formats and Evaluation Protocol}
-\addcontentsline{toc}{subsection}{A.4 Question Formats and Evaluation Protocol}
-
-The Long-Horizon Reasoning Task is decomposed into three question formats whose final outputs are clinical actions, arguments, or discharge decisions:
-
-\begin{itemize}
-    \item \textbf{Next Action Prediction.} The question stem is ``Which of the next step is most appropriate?'' Options are sampled from the seven-action space above, and the ground truth is the action type of the next clinical event.
-    \item \textbf{Argument Prediction.} The question asks for the argument of the next action, such as ``Which 2 medications are most appropriate next?'' or which imaging study is most appropriate. The ground truth is collected from matching future events in a 24-hour window.
-    \item \textbf{Discharge Decision.} The question is a binary Yes/No decision asking whether the patient should be discharged within 6 hours. Unlike argument prediction, this subtask does not use the 24-hour decay window.
-\end{itemize}
-
-For future-event argument questions, the evaluator collects events in \((t,t+24h]\) and assigns an exponential decay weight:
-\[
-    \lambda = \frac{\ln(100)}{24}, \qquad w(\Delta t)=\exp(-\lambda \max(0,\Delta t)),
-\]
-so an event at the current time has weight 1.0 and an event 24 hours later has weight 0.01.
-
-The expected model output is a JSON object:
-\begin{verbatim}
-{"reason": "The patient has abnormal lab results...", "answer": ["order_labs"]}
-\end{verbatim}
-
-The evaluator first parses the model reply as JSON. It accepts a plain JSON string or a fenced \texttt{json} block, extracts \texttt{reason} and \texttt{answer}, and normalizes the answer into a nonempty list of stripped strings. The weighted accuracy function then handles three ground-truth types:
-
-\begin{enumerate}
-    \item If the ground truth is a string, the prediction receives 1.0 when the string appears in the predicted list and 0.0 otherwise.
-    \item If the ground truth is a dictionary from option to weight, the score is the clipped sum of weights for matched predicted options.
-    \item If the ground truth is an unweighted list, the score is the fraction of ground-truth options recovered by the predicted set.
-\end{enumerate}
-
-The reported runs include Qwen-Turbo, DeepSeek-v3.2, and GPT-5-mini, with Note Memory and Event Memory supplied through long-context prompting, retrieval augmentation, or Mem0-style memory. A separate agreement analysis filters out unanimous questions to assess discriminability. This analysis shows that Discharge Decision has only 8 discriminative cases out of 448 sampled questions (about 1.8\%), while Next Action Prediction is substantially more discriminative. This finding motivates interpreting binary discharge accuracy cautiously and emphasizing subtask-level reporting.
-
-\subsection*{A.5 Qualitative Case Studies and Original Interaction JSON}
-\addcontentsline{toc}{subsection}{A.5 Qualitative Case Studies and Original Interaction JSON}
-
-To ground the quantitative results in concrete agent behaviors, we inspect representative reasoning instances from the evaluation set. The cases show three recurring failure modes. First, historical memory can change answers for the worse: in a Next Action Prediction instance for a chemotherapy patient (Patient~3, Visit~16), the agent correctly selects \texttt{medication} with no injected history and with two previous visits, but switches to \texttt{order\_labs} when five visits are injected. Second, retrieved history can mislead when it mimics the current presentation: in an Argument Prediction instance for a patient with bilateral lower-extremity edema, retrieval-based agents are distracted by prior chest pain or headache snippets and select irrelevant imaging. Third, Note Memory can misattribute retrieved content to the current visit, treating a retrospective finding as present-time actionable evidence.
-
-\paragraph{Original interaction trace.}
-The following compact JSON excerpt is taken from the original remote artifacts. It preserves the dialogue/action structure while omitting long clinical note text. The trace shows a context in which the agent has just ordered Doppler imaging, receives a limited addendum, and then answers \texttt{ask\_question} even though the original EHR event used as ground truth is \texttt{order\_imaging}.
-\begin{verbatim}
+\begin{promptblock}{Structured Admission and Discharge Events}
 {
-  "memory_type": "event",
-  "visit_id": "P000001-V12",
-  "t_index": 2,
-  "timestamp": "2121-12-16 19:10:00",
-  "question": "Which of the next step is most appropriate?",
-  "ground_truth": {"order_imaging": 1.0},
-  "context_excerpt": [
-    {
-      "role": "assistant",
-      "timestamp": "2121-12-16 19:10:00",
-      "action": "order_imaging",
-      "args": {
-        "modality": "doppler",
-        "target": "free text body part"
-      }
-    },
-    {
-      "role": "environment",
-      "timestamp": "2121-12-16 19:10:00",
-      "content_excerpt": [
-        "Addendum:",
-        "A limited Color Doppler and Spectral Analysis Study was also",
-        "performed."
-      ]
-    }
-  ],
-  "reply": {
-    "reason": [
-      "The Doppler study report is incomplete/unclear",
-      "and only notes that a limited Doppler study was performed.",
-      "It is appropriate to ask a clarifying question about",
-      "the Doppler results before proceeding."
-    ],
-    "answer": ["ask_question"]
-  },
-  "score": 0.0,
-  "source_files": {
-    "context": [
-      "tasks/agentic_decision/context/P000001",
-      "P000001-V12.context.json"
-    ],
-    "question": [
-      "tasks/agentic_decision/questions_generated",
-      "P000001.jsonl:1"
-    ],
-    "prediction": [
-      "agents/llm_agent/agentic_decision/results",
-      "P000001.event.20260215-160939-a965d504.pred.jsonl:1"
-    ]
+  "event_id": "P000001-V1-adm",
+  "event_type": "ADMISSION",
+  "timestamp": "2120-08-06 20:15:00",
+  "visit_ref": "V1",
+  "content": {
+    "location": "PACU",
+    "admission_type": "EW EMER.",
+    "chief_complaint": "hypotension and lethargy s/p RFA",
+    "history_of_present_illness": "Mr. ___ is a ___ year old man ...",
+    "insurance": "Medicaid"
   }
 }
-\end{verbatim}
-Although the immediate context contains a recent imaging interaction, the model's explicit rationale treats the Doppler report as incomplete and selects \texttt{ask\_question}. The ground truth remains the next imaging action recorded in the original EHR event stream, so the prediction receives score 0.0.
+
+{
+  "event_id": "P000001-V1-dis",
+  "event_type": "DISCHARGE",
+  "timestamp": "2120-08-14 19:30:00",
+  "visit_ref": "V1",
+  "content": {
+    "discharge_time": "2120-08-14 19:30:00",
+    "discharge_location": "HOME",
+    "discharge_note": {...}
+  }
+}
+\end{promptblock}
+
+\subsection*{A1.3 Radiology and Imaging Event Example}
+\addcontentsline{toc}{subsection}{A1.3 Radiology and Imaging Event Example}
+
+Radiology reports are converted into imaging events with a timestamp and report text. The same patient sequence contains the following imaging event.
+
+\begin{promptblock}{Radiology to Imaging Event}
+{
+  "event_id": "P000001-V1-E2",
+  "event_type": "IMAGING",
+  "timestamp": "2120-08-06 07:03:00",
+  "visit_ref": "V1",
+  "content": {
+    "timestamp": "2120-08-06 07:03:00",
+    "report": "CONTRAST-ENHANCED CT OF LIVER AND UPPER ABDOMEN\n\n"
+              "INDICATION: ___ male with known cirrhosis and abnormalities "
+              "in segment II and segment VI of the right lobe of liver. ..."
+  }
+}
+\end{promptblock}
+
+For Context Memory, this event is rendered as an assistant action such as \texttt{order\_imaging} followed by an environment observation containing the available radiology result.
+
+\section*{A2 Memory Construction}
+\addcontentsline{toc}{section}{A2 Memory Construction}
+
+LongMedBench uses three memory forms. Note Memory stores previous-visit discharge summaries, Event Memory stores previous-visit structured event streams, and Context Memory stores the dialogue-style state of the current visit before a decision point.
+
+\subsection*{A2.1 LLM Convert}
+\addcontentsline{toc}{subsection}{A2.1 LLM Convert}
+
+Context Memory is the only memory type that uses an LLM during construction. The code first maps structured events to semantic actions, then asks the LLM to write the assistant-side rationale field under strict grounding constraints.
+
+\begin{promptblock}{ContextMemory LLM Conversion Prompt}
+You write the 'reason' field for the next assistant action in a
+doctor-agent dialogue.
+
+Hard constraints:
+- You may ONLY use information present in the provided prefix_messages.
+- Do NOT invent new patient facts, findings, diagnoses, or outcomes.
+- Do NOT mention results of the current action (results are not available yet).
+- Keep it 1-2 sentences, not exceeding 50 words, workflow-rationale focused.
+
+Output ONLY JSON: {"reason": string, "constraints_ok": boolean}.
+
+User payload:
+{
+  "prefix_messages": <system, admission, and previous interaction messages>,
+  "current_decision": {"action": <action>, "args": <arguments>}
+}
+\end{promptblock}
+
+The remaining memory types are constructed automatically. Note Memory is produced by extracting the complete discharge-note text from previous visits. Event Memory is produced by chronological serialization of structured EHR events. Neither requires LLM rewriting.
+
+\subsection*{A2.2 Memory Templates}
+\addcontentsline{toc}{subsection}{A2.2 Memory Templates}
+
+\begin{promptblock}{NoteMemory Template}
+[Visit P000001-V1 NoteMemory]
+Chief Complaint: hypotension and lethargy s/p RFA
+History of Present Illness: Mr. ___ is a ___ year old man with
+EtOH and HCV cirrhosis, c/b ascites, prior variceal bleeds, recent MRI
+with 2 lesions suspicious for ___, who was admitted s/p RFA with
+lethargy and hypotension. ...
+Discharge Location: HOME
+Discharge Summary: <complete discharge-note fields from raw note>
+\end{promptblock}
+
+\begin{promptblock}{EventMemory Template}
+PROCEDURE  P000001-V1-E1  2120-08-06
+  items: Closed percutaneous needle biopsy of liver;
+         Percutaneous ablation of liver lesion or tissue
+
+LAB        P000001-V1-E8  2120-08-08 05:10:00
+  items: Red Blood Cells 3.29 m/uL abnormal; RDW 16.7% abnormal;
+         Alanine Aminotransferase included in Chemistry panel
+
+MICRO      P000001-V1-E11 2120-08-08 11:45:00
+  specimen: BLOOD CULTURE; result: NO GROWTH
+
+MEDICATION P000001-V1-E4  2120-08-06 21:00:00
+  items: Morphine Sulfate IV 0.5-1 mg ordered;
+         Ondansetron IV 4 mg ordered
+\end{promptblock}
+
+\begin{promptblock}{ContextMemory Template}
+{
+  "patient_id": "P000001",
+  "visit_id": "P000001-V12",
+  "messages": [
+    {"role": "system", "content": "You are a doctor agent ..."},
+    {"role": "user", "content": "Gender: M. Age at first visit: 48 ..."},
+    {"role": "assistant", "content": {
+      "reason": "The patient has atypical chest pain and bilateral lower
+                 extremity edema, warranting a chest X-ray ...",
+      "action": "order_imaging",
+      "args": {"modality": "xray", "target": "chest",
+               "timestamp": "2121-12-16 19:05:00"}
+    }},
+    {"role": "user", "content": {
+      "name": "environment",
+      "observation_type": "imaging_results",
+      "results": [{"test": "chest xray", "content": "..."}]
+    }}
+  ]
+}
+\end{promptblock}
+
+\section*{A3 Question Generation}
+\addcontentsline{toc}{section}{A3 Question Generation}
+
+The agentic decision task uses three question templates generated from the current event prefix and future event stream. Examples below come from \texttt{tasks/agentic\_decision/questions\_generated/P000001.jsonl}.
+
+\begin{table}[!h]
+    \centering
+    \caption{Question templates for the three agentic decision subtasks.}
+    \label{tab:appendix_question_templates}
+    {\fontsize{8}{9.2}\selectfont
+    \setlength{\tabcolsep}{3pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular*}{\textwidth}{p{0.15\textwidth}@{\extracolsep{\fill}}p{0.27\textwidth}p{0.31\textwidth}p{0.18\textwidth}}
+        \toprule
+        \textbf{Type} & \textbf{Template} & \textbf{Example options} & \textbf{Answer form} \\
+        \midrule
+        T3-N Next Action & Which of the next step is most appropriate? & \texttt{perform\_procedure}, \texttt{medication}, \texttt{ask\_question}, \texttt{order\_microbiology}, \texttt{order\_labs}, \texttt{order\_imaging} & Weighted action dictionary \\
+        T3-A Argument & Which imaging order is most appropriate next? & \texttt{CT head}, \texttt{MRI brain}, \texttt{CT abdomen}, \texttt{XRAY abdomen}, \texttt{CT chest}, \texttt{US pelvis} & Weighted argument dictionary \\
+        T3-D Discharge & Should the patient be discharged within 6h? & \texttt{Yes}, \texttt{No} & Weighted binary dictionary \\
+        \bottomrule
+    \end{tabular*}}
+\end{table}
+
+\begin{promptblock}{Expected Model Output}
+{"reason": "The patient has abnormal lab results...", "answer": ["order_labs"]}
+\end{promptblock}
+
+For T3-A questions, candidate answers are collected from future events in a 24-hour window after the current timestamp and weighted by temporal decay. T3-D instead compares the current timestamp with the discharge time using a six-hour horizon.
+
+\section*{A4 Agent Configuration}
+\addcontentsline{toc}{section}{A4 Agent Configuration}
+
+Each evaluation condition is defined by two axes: the historical memory source, either Note Memory or Event Memory, and the delivery strategy, either long-context prompting, retrieval-augmented generation (RAG), or Mem0-style managed memory. The current-visit Context Memory is always included as the immediate interaction state.
+
+\begin{table}[!h]
+    \centering
+    \caption{Agent context structure under each memory-delivery setting.}
+    \label{tab:appendix_agent_config}
+    {\fontsize{8}{9.2}\selectfont
+    \setlength{\tabcolsep}{3pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular*}{\textwidth}{p{0.18\textwidth}@{\extracolsep{\fill}}p{0.22\textwidth}p{0.50\textwidth}}
+        \toprule
+        \textbf{Setting} & \textbf{Historical source} & \textbf{Context structure} \\
+        \midrule
+        Note + context & Previous discharge notes & System prompt, current-visit context messages, packed previous-visit discharge notes, user question. \\
+        Event + context & Previous event streams & System prompt, current-visit context messages, packed chronological events from previous visits, user question. \\
+        Note + RAG & Previous discharge notes indexed for retrieval & System prompt and current context, retrieved note snippets relevant to the question, user question. \\
+        Event + RAG & Previous event streams indexed for retrieval & System prompt and current context, retrieved event snippets relevant to the question, user question. \\
+        Note + Mem0 & Previous discharge notes stored as managed memories & System prompt and current context, Mem0-recalled note memories, user question. \\
+        Event + Mem0 & Previous event streams stored as managed memories & System prompt and current context, Mem0-recalled event memories, user question. \\
+        \bottomrule
+    \end{tabular*}}
+\end{table}
+
+\section*{A5 Case Study}
+\addcontentsline{toc}{section}{A5 Case Study}
+
+This case study shows how one decision instance is answered under different memory configurations. It includes the original Context Memory excerpt and the original question, but omits file indexes, retrieval indexes, and source-path metadata.
+
+\paragraph{Case identifier and task.}
+The instance is \texttt{P000001-V12-T0002-T3-N-0}, a T3-N Next Action Prediction question at \texttt{2121-12-16 19:10:00}. The ground truth is \texttt{order\_imaging} with weight 1.0.
+
+\begin{promptblock}{Original ContextMemory Excerpt}
+system: You are a doctor agent. You can perform these semantic actions:
+ask_question, order_labs, order_microbiology, order_imaging,
+perform_procedure, medication, discharge. The environment returns only
+information that exists in this admission record; otherwise it returns
+not_available. Do not invent new findings.
+
+user: Gender: M. Age at first visit: 48. Language: Spanish. Marital
+status: SINGLE. Race: HISPANIC/LATINO - DOMINICAN. Chief complaint:
+Chest Pa. HPI: ___ year old male with HCV and EtOH cirrhosis on the
+transplant list, complicated by ___ s/p TACE x2 and RFA and ascites,
+and recurrent C. difficile colitis, presents with increasing abdominal
+distention, bilateral lower extremity swelling, and occasional
+non-pleuritic, non-exertional chest pain for 3 days. ...
+
+assistant: {
+  "reason": "The patient has atypical chest pain and bilateral lower
+             extremity edema, warranting a chest X-ray to evaluate for
+             possible pulmonary causes.",
+  "action": "order_imaging",
+  "args": {"modality": "xray", "target": "chest",
+           "timestamp": "2121-12-16 19:05:00"}
+}
+
+environment: chest xray -> Limited, negative.
+
+assistant: {
+  "reason": "The patient has bilateral lower extremity edema,
+             warranting a Doppler ultrasound to evaluate for deep vein
+             thrombosis.",
+  "action": "order_imaging",
+  "args": {"modality": "doppler", "target": "free text body part",
+           "timestamp": "2121-12-16 19:10:00"}
+}
+
+environment: free text body part doppler -> Addendum: A limited Color
+Doppler and Spectral Analysis Study was also performed.
+\end{promptblock}
+
+\begin{promptblock}{Original Question}
+qid: P000001-V12-T0002-T3-N-0
+visit_id: P000001-V12
+timestamp: 2121-12-16 19:10:00
+qtype: T3-N
+question: Which of the next step is most appropriate?
+options:
+  - perform_procedure
+  - medication
+  - ask_question
+  - order_microbiology
+  - order_labs
+  - order_imaging
+answer: {"order_imaging": 1.0}
+\end{promptblock}
+
+\begin{table}[!h]
+    \centering
+    \caption{Different memory configurations produce different answers for the same case.}
+    \label{tab:appendix_case_predictions}
+    {\fontsize{7.2}{8.4}\selectfont
+    \setlength{\tabcolsep}{2.5pt}
+    \renewcommand{\arraystretch}{1.18}
+    \begin{tabular*}{\textwidth}{p{0.15\textwidth}@{\extracolsep{\fill}}p{0.14\textwidth}p{0.09\textwidth}p{0.54\textwidth}}
+        \toprule
+        \textbf{Configuration} & \textbf{Answer} & \textbf{Score} & \textbf{Reasoning excerpt} \\
+        \midrule
+        Note + context & \texttt{order\_labs} & 0.0 & Chest pain and bilateral leg edema with limited Doppler and negative chest X-ray suggest laboratory evaluation such as CBC, BMP, troponin, BNP, coagulation, and LFTs. \\
+        Event + context & \texttt{order\_labs} & 0.0 & Chest pain with bilateral leg edema and a limited negative chest X-ray leads the model to cardiac and heart-failure labs rather than repeat imaging. \\
+        Note + RAG & \texttt{order\_imaging} & 1.0 & Bilateral lower-extremity edema and an indeterminate Doppler addendum motivate repeat or complete venous imaging for DVT evaluation. \\
+        Event + RAG & \texttt{order\_imaging} & 1.0 & The limited Doppler report gives no diagnostic interpretation; definitive imaging such as complete venous duplex is selected. \\
+        Note + Mem0 & \texttt{order\_labs} & 0.0 & Retrieved memory emphasizes crossmatching blood before endoscopy, shifting the answer toward type-and-cross laboratory testing. \\
+        Event + Mem0 & \texttt{order\_labs} & 0.0 & Retrieved memory emphasizes possible lumbar puncture and abnormal coagulation values, shifting the answer toward coagulation and related labs. \\
+        \bottomrule
+    \end{tabular*}}
+\end{table}
+
+The case highlights two behaviors. First, RAG succeeds here because retrieved evidence reinforces the local imaging trajectory. Second, Mem0 can retrieve clinically plausible but temporally mismatched memories; those memories produce coherent rationales but answer a different clinical situation from the current decision point.
