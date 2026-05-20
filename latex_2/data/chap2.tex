@@ -148,10 +148,6 @@ At the subtask level, Discharge Decision reaches approximately 0.58--0.63 becaus
 
 Event Memory slightly improves Argument Prediction in most models, suggesting that fine-grained historical events help parameter selection, but the gains do not consistently translate into higher average decision-making performance. DeepSeek-v3.2's thinking mode does not improve decision-making performance in this benchmark. Under Event Memory, the average score drops from 0.439 to 0.419, and Discharge Decision decreases from 0.607 to 0.593. This suggests that extended model-native reasoning may make the model more conservative or distract it from committing to the multiple-choice decision, especially when the task requires selecting an actionable next step rather than explaining uncertainty.
 
-\subsection{Memory Ablations: Visit Injection and Retrieval Architectures}
-
-Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test historical depth and memory-augmentation strategies. Increasing the number of injected visits does not produce monotonic gains, and retrieval-based architectures remain close to or below the naive baseline.
-
 \begin{table}[!h]
     \centering
     \caption{Qwen-Turbo ablation of historical visit injection and retrieval/memory architectures. The upper block varies injected visit depth; the lower block compares RAG and Mem0 over event and note memory.}
@@ -178,6 +174,13 @@ Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test h
         \bottomrule
     \end{tabular*}}
 \end{table}
+
+\subsection{Memory Ablations: Visit Injection and Retrieval Architectures}
+
+
+
+Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test historical depth and memory-augmentation strategies. Increasing the number of injected visits does not produce monotonic gains, and retrieval-based architectures remain close to or below the naive baseline.
+
 
 \textbf{Finding.} The ablation results revise the earlier interpretation: the negative result is not specific to Discharge Decision, but spans the broader decision-making suite. Even when historical information is made available through longer visit injection, RAG, or Mem0, models do not systematically improve on Argument Prediction, Discharge Decision, or Next Action Prediction. The $n=0$ baseline remains competitive, indicating that agents rely heavily on immediate context and struggle to convert retrieved history into better decisions.
 
