@@ -98,7 +98,7 @@
             \renewcommand{\arraystretch}{1.75}
             \setlength{\tabcolsep}{0pt}
             \begin{tabular}{p{3.5cm}p{10.89cm}}
-                Thesis Title    & \uline{\hfill \zju@title \hfill}          \\
+                Thesis Title    & \parbox[t]{10.89cm}{\centering \zju@title\par\vspace{0.15em}\hrule height 0.4pt} \\[1.0em]
                 Student Name    & \uline{\hfill \zju@name \hfill}           \\
                 Student ID      & \uline{\hfill \zju@id \hfill}             \\
                 Supervisor      & \uline{\hfill \zju@supervisor \hfill}     \\

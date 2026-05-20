@@ -2,6 +2,38 @@
 
 \documentclass[filled]{zjuthesis}% 填入filled参数，自动填写Checklist表格相关信息
 \usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+
+\definecolor{PromptPurple}{HTML}{9D95C9}
+\definecolor{PromptBack}{HTML}{F3F2FA}
+
+\newtcblisting{promptblock}[1]{
+    enhanced,
+    breakable,
+    listing only,
+    colback=PromptBack,
+    colframe=PromptPurple,
+    coltitle=white,
+    colbacktitle=PromptPurple,
+    title={#1},
+    fonttitle=\bfseries\large,
+    boxrule=0.8pt,
+    arc=0pt,
+    left=8pt,
+    right=8pt,
+    top=6pt,
+    bottom=6pt,
+    listing options={
+        basicstyle=\ttfamily\fontsize{8}{9.4}\selectfont,
+        breaklines=true,
+        breakatwhitespace=false,
+        columns=fullflexible,
+        keepspaces=true,
+        showstringspaces=false
+    }
+}
 \begin{document}
 
 \zju{
