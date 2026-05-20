@@ -140,9 +140,13 @@ Qwen-Turbo serves as the primary ablation vehicle; key conditions are replicated
     \end{tabular*}}
 \end{table}
 
-\subsection{Subtask-Level Patterns}
+\subsection{Model Level Patterns}
 
-The most visible pattern is that Discharge Decision should not be interpreted as the whole Long-Horizon Reasoning Task. It reaches approximately 0.58--0.63 because it is a binary discharge decision, whereas Next Action Prediction remains around 0.28--0.34 because selecting the next action type requires finer-grained clinical planning. Argument Prediction lies in the middle, reflecting the difficulty of selecting appropriate event arguments such as laboratory panels or imaging targets. Event Memory slightly improves Argument Prediction in most models, suggesting that fine-grained historical events help parameter selection, but the gains do not consistently translate into higher average decision-making performance.
+Table~\ref{tab:decision_overall} reports the long-context LLM performance, where each model is allowed to use the available patient history within a maximum 128K-token context. The strongest overall result is obtained by GPT-5-mini with Event Memory (Avg = 0.452), followed by GPT-5-mini with Note Memory (Avg = 0.445) and DeepSeek-v3.2 with Event Memory (Avg = 0.439). This ranking supports the LongMedBench observation that structured event memory can outperform note memory for several models in decision-making, but the advantage is not universal: Qwen-Turbo performs better with Note Memory, and DeepSeek-v3.2-thinking remains nearly unchanged across memory types.
+
+At the subtask level, Discharge Decision reaches approximately 0.58--0.63 because it is a binary discharge decision, whereas Next Action Prediction remains around 0.28--0.34 because selecting the next action type requires finer-grained clinical planning. Argument Prediction lies in the middle, reflecting the difficulty of selecting appropriate event arguments such as laboratory panels or imaging targets. 
+
+Event Memory slightly improves Argument Prediction in most models, suggesting that fine-grained historical events help parameter selection, but the gains do not consistently translate into higher average decision-making performance. DeepSeek-v3.2's thinking mode does not improve decision-making performance in this benchmark. Under Event Memory, the average score drops from 0.439 to 0.419, and Discharge Decision decreases from 0.607 to 0.593. This suggests that extended model-native reasoning may make the model more conservative or distract it from committing to the multiple-choice decision, especially when the task requires selecting an actionable next step rather than explaining uncertainty.
 
 \subsection{Memory Ablations: Visit Injection and Retrieval Architectures}
 
@@ -177,10 +181,3 @@ Table~\ref{tab:decision_ablation} reports the Qwen-Turbo ablation used to test h
 
 \textbf{Finding.} The ablation results revise the earlier interpretation: the negative result is not specific to Discharge Decision, but spans the broader decision-making suite. Even when historical information is made available through longer visit injection, RAG, or Mem0, models do not systematically improve on Argument Prediction, Discharge Decision, or Next Action Prediction. The $n=0$ baseline remains competitive, indicating that agents rely heavily on immediate context and struggle to convert retrieved history into better decisions.
 
-\subsection{DeepSeek Thinking Mode}
-
-DeepSeek-v3.2's thinking mode does not improve decision-making performance in this benchmark. This condition should not be interpreted as merely adding an ordinary prompt-level chain-of-thought example; it uses the model's native deep exploration/reasoning mode before the model commits to the required JSON answer. Under Event Memory, the average score drops from 0.439 to 0.419, and Discharge Decision decreases from 0.607 to 0.593. This suggests that extended model-native reasoning may make the model more conservative or distract it from committing to the multiple-choice decision, especially when the task requires selecting an actionable next step rather than explaining uncertainty.
-
-\subsection{Summary of Findings}
-
-The experimental results converge on a refined narrative: (1) long-horizon clinical reasoning remains challenging, especially for Next Action Prediction; (2) Discharge Decision is easier and should not be used as a proxy for the entire reasoning benchmark; (3) Event Memory can modestly improve Argument Prediction but does not reliably improve average decision-making performance; (4) historical visit injection, RAG, and Mem0 do not provide systematic gains over the immediate-context baseline; and (5) DeepSeek's model-native thinking mode can degrade performance through increased conservatism. Concrete case traces are provided in Appendix~A.5. These findings collectively reveal a retrieval-reasoning gap whose implications we explore in Chapter~3.
