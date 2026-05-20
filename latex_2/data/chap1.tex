@@ -6,7 +6,7 @@ Clinical practice is fundamentally longitudinal. Patients with chronic condition
 
 As large language models (LLMs) transition from static question-answering to autonomous medical agents, their ability to navigate longitudinal clinical trajectories has become a critical benchmark for clinical readiness. Yet existing evaluation benchmarks assess single-encounter behavior: tool-use accuracy in a simulated visit, diagnosis from a single symptom set, or fact retrieval from a single discharge summary. These evaluations, while valuable, do not measure the cross-visit temporal integration that real clinical practice demands.
 
-This thesis presents the decision-making component of \textbf{LongMedBench}, a benchmark constructed from MIMIC-IV \cite{PhysioNet-mimiciv-3.1} EHR data that evaluates LLM agents on long-horizon clinical decision-making. Our work bridges two previously disconnected lines of research: the design of long-horizon interaction benchmarks from the general AI domain, and the evaluation of clinical reasoning from real-world EHR data. Through a three-tier memory architecture and systematic ablation of memory strategies, we investigate a central question: given long-context windows, RAG, and agent memory systems, how well can contemporary LLMs integrate longitudinal clinical history to inform next-step decisions?
+This thesis presents the Long-Horizon Reasoning Task of \textbf{LongMedBench}, a benchmark component constructed from MIMIC-IV \cite{PhysioNet-mimiciv-3.1} EHR data that evaluates whether LLM agents can reason over longitudinal clinical history before selecting next-step clinical decisions. Our work bridges two previously disconnected lines of research: the design of long-horizon interaction benchmarks from the general AI domain, and the evaluation of clinical reasoning from real-world EHR data. Through a three-tier memory architecture and systematic ablation of memory strategies, we investigate a central question: given long-context windows, RAG, and agent memory systems, how well can contemporary LLMs integrate longitudinal clinical history to inform next-step decisions?
 
 \section{Medical Benchmarks for Clinical AI}
 
@@ -52,7 +52,7 @@ In parallel with medical AI, a rich set of long-horizon benchmarks has emerged i
 
 \paragraph{Multi-Hop and Multi-Turn Benchmarks.} Beyond basic retrieval, LoCoMo \cite{maharana2024evaluating} and LongMemEval \cite{wu2024longmemeval} use simulated multi-session dialogues to evaluate whether models can recall and reason about information shared across temporally separated interactions. Both introduce the concept of multi-hop reasoning, which parallels the clinical need to connect evidence across visits.
 
-\paragraph{Interactive Agent Benchmarks.} TRIP-Bench \cite{shen2026tripbenchbenchmarklonghorizoninteractive} evaluates agents on executing long-horizon interactive tasks in real-world scenarios, where agents must plan, execute, and adapt across extended interactions. AMA-Bench \cite{amabench2026} benchmarks long-horizon memory for agentic applications, measuring how well agents retain and leverage information across prolonged task sequences. In both cases, the agent navigates a sequence of steps informed by all prior history, and evaluation centers on whether historical information is effectively integrated into next-step decisions. This paradigm inspires LongMedBench's clinical decision-making setting.
+\paragraph{Interactive Agent Benchmarks.} TRIP-Bench \cite{shen2026tripbenchbenchmarklonghorizoninteractive} evaluates agents on executing long-horizon interactive tasks in real-world scenarios, where agents must plan, execute, and adapt across extended interactions. AMA-Bench \cite{amabench2026} benchmarks long-horizon memory for agentic applications, measuring how well agents retain and leverage information across prolonged task sequences. In both cases, the agent navigates a sequence of steps informed by all prior history, and evaluation centers on whether historical information is effectively integrated into next-step decisions. This paradigm inspires LongMedBench's clinical long-horizon reasoning setting.
 
 \begin{table}[ht]
     \centering
@@ -122,7 +122,7 @@ LongMedBench is positioned at the intersection of the two fields surveyed above.
 
 \section{Research Questions}
 
-Specifically, focusing on Long-Horizon Decision-Making tasks within LongMedBench, this thesis investigates three questions:
+Specifically, focusing on the Long-Horizon Reasoning Task within LongMedBench, this thesis investigates three questions:
 
 \begin{enumerate}
     \item \textbf{Memory granularity:} Does the format of historical information affect clinical decision quality?
@@ -139,13 +139,13 @@ Within the broader LongMedBench project, this thesis makes four contributions:
     
     \item \textbf{Three-Tier Memory Architecture.} A memory framework operating at three granularities, enabling systematic ablation of memory effects on decision quality: Note Memory $\mathcal{M}^{(i,j)}_N$ (coarse-grained visit summaries), Event Memory $\mathcal{M}^{(i,j)}_E$ (fine-grained structured event sequences), and Context Memory $\mathcal{M}_C^{(j,T)}$ (immediate visit context).
     
-    \item \textbf{Long-Horizon Decision-Making Task.} An interactive evaluation protocol where the agent receives a partial patient trajectory through controlled memory and must predict the next clinical action from a predefined action space, with ground truth extracted from actual clinical records.
+    \item \textbf{Long-Horizon Reasoning Task.} An interactive evaluation protocol where the agent receives a partial patient trajectory through controlled memory, writes an explicit rationale, and then predicts the next clinical action or decision from predefined options, with ground truth extracted from actual clinical records.
     
     \item \textbf{Empirical Finding.} Through experiments across GPT-5-mini \cite{gpt52}, DeepSeek-v3.2 \cite{deepseekai2025deepseekv32}, and Qwen-Turbo \cite{qwen3} comparing Naive Long-Context, RAG, and Mem0 strategies, we find that memory augmentation provides no significant improvement for longitudinal clinical decision-making. Decision accuracy depends primarily on immediate context, revealing a retrieval-reasoning gap that challenges current memory-centric approaches.
 \end{enumerate}
 
 \section{Scope and Structure}
 
-This thesis focuses exclusively on Long-Horizon Decision-Making Tasks on LongMedBench. The Fact-based QA and Temporal Reasoning tasks are covered in collaborators' separate theses.
+This thesis focuses exclusively on the Long-Horizon Reasoning Task on LongMedBench. The Fact-based QA and Temporal Reasoning tasks are covered in collaborators' separate theses.
 
-Chapter~2 presents the data processing pipeline, three-tier memory architecture, decision-making task design, experimental setup, and results. Chapter~3 discusses the implications of our findings, acknowledges limitations, and outlines future research directions.
+Chapter~2 presents the data processing pipeline, three-tier memory architecture, long-horizon reasoning task design, experimental setup, and results. Chapter~3 discusses the implications of our findings, acknowledges limitations, and outlines future research directions.

@@ -27,7 +27,11 @@
     $\hat{y}$ & Agent output answer. \\
     $E_i^{GT}$, $t_i^{GT}$ & Ground-truth target event and its timestamp. \\
     $\mathcal{E}_{24h}$ & Events occurring within the 24-hour window after $t_i^{GT}$. \\
+    $\Delta t$ & Time elapsed from the target timestamp to a candidate future event. \\
+    $w(\Delta t)$ & Exponential decay weight for a candidate event. \\
     $\lambda$ & Time-decay rate, defined as $\ln(100)/24$. \\
+    $y_i^k$ & Ground-truth label associated with event $E_i^k$. \\
+    $\operatorname{Score}(y_i^k,\hat{y})$ & Task-specific match score between the ground-truth label and agent answer. \\
     \bottomrule
 \end{tabular*}}
 
