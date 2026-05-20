@@ -103,7 +103,7 @@
                 Student ID      & \uline{\hfill \zju@id \hfill}             \\
                 Supervisor      & \uline{\hfill \zju@supervisor \hfill}     \\
                 Class of year   & \uline{\hfill \zju@classOfYear \hfill}    \\
-                Major           & \uline{\hfill \zju@major \hfill}          \\
+                Major           & \parbox[t]{10.89cm}{\centering \zju@major\par\vspace{0.15em}\hrule height 0.4pt} \\[0.8em]
                 Submission date & \uline{\hfill \zju@submissionDate \hfill} \\
             \end{tabular}
         \end{center}
@@ -157,11 +157,11 @@
     \noindent
     \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c|}
         \hline
-        \multicolumn{2}{|l|}{Student Name}                                                  & \makebox[2.5cm]{\ifChecklistFill\zju@name\else \fi}                          & ZJU ID & \multicolumn{3}{c|}{\makebox[2.5cm]{\ifChecklistFill\zju@id\else\fi}} & \multicolumn{3}{c|}{Major} & \multicolumn{2}{c|}{\makebox[2.5cm]{\ifChecklistFill\zju@major\else\fi}} \\
+        \multicolumn{2}{|l|}{Student Name}                                                  & \makebox[2.5cm]{\ifChecklistFill\zju@name\else \fi}                          & ZJU ID & \multicolumn{3}{c|}{\makebox[2.5cm]{\ifChecklistFill\zju@id\else\fi}} & \multicolumn{3}{c|}{Major} & \multicolumn{2}{c|}{\parbox[c][1.0cm][c]{2.5cm}{\centering\ifChecklistFill\zju@major\else\fi}} \\
         \hline
         \multicolumn{2}{|l|}{Supervisor}                                                    & \multicolumn{4}{c|}{\makebox[4cm]{\makecell{~                                                                                                                                                                                                                         \\\ifChecklistFill\zju@supervisor\else\fi\\~\\}}}                                         & \multicolumn{2}{c|}{\makecell[c]{Academic                                                                                                                \\ Title}} & \multicolumn{4}{c|}{\makebox[3cm]{\ifChecklistFill\zju@academicTitle\else\fi}}                                                                                    \\
         \hline
-        \multicolumn{2}{|l|}{Thesis title}                                                  & \multicolumn{10}{c|}{\makecell{~                                                                                                                                                                                                                                      \\\ifChecklistFill\zju@title\else\fi\\~\\}}                                                                                                                                                                                                           \\
+        \multicolumn{2}{|l|}{Thesis title}                                                  & \multicolumn{10}{c|}{\parbox[c][1.15cm][c]{12.0cm}{\centering\ifChecklistFill\zju@title\else\fi}}                                                                                                                                                             \\
         \hline
         \multicolumn{10}{|c|}{\xiaosi\textbf{Content Checklist}}                            & \multicolumn{2}{c|}{\xiaosi\bf\makecell{Evaluation                                                                                                                                                                                                                    \\ Section (√)}}                                                                                                                                                        \\
         \hline

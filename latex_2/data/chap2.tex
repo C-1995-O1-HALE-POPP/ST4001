@@ -108,7 +108,7 @@ We design a factorial ablation varying four factors:
 \begin{enumerate}
     \item \textbf{Memory Granularity:} Note Memory vs.\ Event Memory.
     \item \textbf{Provision Strategy:} Naive Long-Context vs.\ RAG vs.\ Mem0.
-    \item \textbf{Historical Depth ($n$):} Number of injected historical visits: $n \in \{0, 1, 2, 3, \infty\}$. $n=0$ provides Context Memory $\mathcal{M}_C^{(j,T)}$ only (no history) as baseline.
+    \item \textbf{Historical Depth ($n$):} Number of injected historical visits: $n \in \{0, 2, 5\}$. $n=0$ provides Context Memory $\mathcal{M}_C^{(j,T)}$ only with no history as baseline.
     \item \textbf{Reasoning Mode:} Standard vs.\ model-native thinking mode (DeepSeek-v3.2 only), where the thinking condition uses DeepSeek's native deep exploration/reasoning mode rather than an ordinary prompt-level chain-of-thought exemplar.
 \end{enumerate}
 
