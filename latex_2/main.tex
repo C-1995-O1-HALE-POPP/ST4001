@@ -7,6 +7,8 @@
 \usepackage[most]{tcolorbox}
 \usepackage{pdfpages}
 
+\newcounter{tocpdfpage}
+
 \fancypagestyle{PDFPageNumber}{
     \fancyhf{}
     \fancyfoot[C]{\xiaowu\thepage}
@@ -70,6 +72,7 @@
     \include{data/abstract}}
 
 \tableofcontents
+\clearpage
 
 \mainmatter
 
@@ -86,17 +89,38 @@
 %\include{data/symbols}
 \include{data/appendix}
 \include{data/biography}
+% \setcounter{tocpdfpage}{0}
+% \includepdf[
+%     pages=-,
+%     pagecommand={
+%         \thispagestyle{PDFPageNumber}
+%         \stepcounter{tocpdfpage}
+%         \ifnum\value{tocpdfpage}=1
+%             \phantomsection\addcontentsline{toc}{chapter}{Task Plan of Thesis Project}
+%         \fi
+%     }
+% ]{TaskPlan.pdf}
+% \setcounter{tocpdfpage}{0}
+% \includepdf[
+%     pages=-,
+%     pagecommand={
+%         \thispagestyle{PDFPageNumber}
+%         \stepcounter{tocpdfpage}
+%         \ifnum\value{tocpdfpage}=1
+%             \phantomsection\addcontentsline{toc}{chapter}{On-site Minutes of Oral Defense}
+%         \fi
+%     }
+% ]{onsite.pdf}
+\setcounter{tocpdfpage}{0}
 \includepdf[
     pages=-,
-    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{Task Plan of Thesis Project}}
-]{TaskPlan.pdf}
-\includepdf[
-    pages=-,
-    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{On-site Minutes of Oral Defense}}
-]{onsite.pdf}
-\includepdf[
-    pages=-,
-    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection\addcontentsline{toc}{chapter}{Assessment Form of Senior Thesis}}
+    pagecommand={
+        \thispagestyle{PDFPageNumber}
+        \stepcounter{tocpdfpage}
+        \ifnum\value{tocpdfpage}=1
+            \phantomsection\addcontentsline{toc}{chapter}{Assessment Form of Senior Thesis}
+        \fi
+    }
 ]{AssessmentFormOfSeniorThesis.pdf}
 
 
