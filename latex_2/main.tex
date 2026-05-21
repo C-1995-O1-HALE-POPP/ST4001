@@ -111,17 +111,19 @@
 %         \fi
 %     }
 % ]{onsite.pdf}
-\setcounter{tocpdfpage}{0}
+% \setcounter{tocpdfpage}{0}
+% \includepdf[
+%     pages=-,
+%     pagecommand={
+%         \thispagestyle{PDFPageNumber}
+%         \stepcounter{tocpdfpage}
+%         \ifnum\value{tocpdfpage}=1
+%             \phantomsection\addcontentsline{toc}{chapter}{Assessment Form of Senior Thesis}
+%         \fi
+%     }
+% ]{AssessmentFormOfSeniorThesis.pdf}
 \includepdf[
     pages=-,
-    pagecommand={
-        \thispagestyle{PDFPageNumber}
-        \stepcounter{tocpdfpage}
-        \ifnum\value{tocpdfpage}=1
-            \phantomsection\addcontentsline{toc}{chapter}{Assessment Form of Senior Thesis}
-        \fi
-    }
 ]{AssessmentFormOfSeniorThesis.pdf}
-
 
 \end{document}
