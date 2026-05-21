@@ -60,8 +60,11 @@
 \frontmatter
 
 \Checklist
-\Commitment
-
+% \Commitment
+\includepdf[
+    pages=-,
+    pagecommand={\thispagestyle{PDFPageNumber}\phantomsection}
+]{integrity.pdf}
 {\doublespacing
     \include{data/ack}
     \include{data/abstract}}

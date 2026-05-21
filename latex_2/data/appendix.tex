@@ -1,12 +1,12 @@
 \centerline{\xiaoyi\bf Appendix}
 \addcontentsline{toc}{chapter}{Appendix}
 
-This appendix reorganizes the supplementary material around the benchmark artifacts used to construct and evaluate LongMedBench. Code-like artifacts are shown in shaded blocks with a colored header. Long notes, reports, and model responses are shortened only for readability while preserving the original schema and decision content.
+This appendix reorganizes the supplementary material around the benchmark artifacts used to construct and evaluate LongMedBench.  Long notes, reports, and model responses are shortened only for readability while preserving the original schema and decision content.
 
 \section*{A1 Dataset Pipeline}
 \addcontentsline{toc}{section}{A1 Dataset Pipeline}
 
-The dataset pipeline starts from raw MIMIC-IV notes and structured tables, converts each admission into a typed clinical event stream, and then derives the current-visit interaction context used by the agentic decision task. A representative patient-level sequence record contains 813 ordered events for Patient~P000001, including demographics, admissions, labs, microbiology, imaging, medications, procedures, and discharges.
+The dataset pipeline starts from raw MIMIC-IV notes and structured tables, converts each admission into a typed clinical event stream, and then derives the current-visit interaction context used by the agent decision task. 
 
 \subsection*{A1.1 Raw Discharge Note Example}
 \addcontentsline{toc}{subsection}{A1.1 Raw Discharge Note Example}
@@ -36,7 +36,7 @@ During preprocessing, admission-facing fields such as chief complaint and histor
 \subsection*{A1.2 Structured Admission and Discharge Events}
 \addcontentsline{toc}{subsection}{A1.2 Structured Admission and Discharge Events}
 
-In the sequenced patient file, a visit is represented by explicit boundary events. For example, the first retained visit of P000001 begins with an admission event and ends with a discharge event.
+In the sequenced patient file, a visit is represented by explicit boundary events.
 
 \begin{promptblock}{Structured Admission and Discharge Events}
 {
@@ -117,7 +117,7 @@ User payload:
 }
 \end{promptblock}
 
-The remaining memory types are constructed automatically. Note Memory is produced by extracting the complete discharge-note text from previous visits. Event Memory is produced by chronological serialization of structured EHR events. Neither requires LLM rewriting.
+The remaining memory types are constructed using regular expressions. Note Memory is produced by extracting the complete discharge-note text from previous visits. Event Memory is produced by chronological serialization of structured EHR events. Neither requires LLM rewriting.
 
 \subsection*{A2.2 Memory Templates}
 \addcontentsline{toc}{subsection}{A2.2 Memory Templates}
@@ -176,7 +176,7 @@ MEDICATION P000001-V1-E4  2120-08-06 21:00:00
 \section*{A3 Question Generation}
 \addcontentsline{toc}{section}{A3 Question Generation}
 
-The agentic decision task uses three question templates generated from the current event prefix and future event stream. The examples below are representative generated questions for Patient~P000001.
+The decision making task uses three question templates generated from the current event prefix and future event stream.
 
 \begin{table}[!h]
     \centering
@@ -189,9 +189,9 @@ The agentic decision task uses three question templates generated from the curre
         \toprule
         \textbf{Type} & \textbf{Template} & \textbf{Example options} & \textbf{Answer form} \\
         \midrule
-        T3-N Next Action & Which of the next step is most appropriate? & \texttt{perform\_procedure}, \texttt{medication}, \texttt{ask\_question}, \texttt{order\_microbiology}, \texttt{order\_labs}, \texttt{order\_imaging} & Weighted action dictionary \\
-        T3-A Argument & Which imaging order is most appropriate next? & \texttt{CT head}, \texttt{MRI brain}, \texttt{CT abdomen}, \texttt{XRAY abdomen}, \texttt{CT chest}, \texttt{US pelvis} & Weighted argument dictionary \\
-        T3-D Discharge & Should the patient be discharged within 6h? & \texttt{Yes}, \texttt{No} & Weighted binary dictionary \\
+        Next Action & Which of the next step is most appropriate? & \texttt{perform\_procedure}, \texttt{medication}, \texttt{ask\_question}, \texttt{order\_microbiology}, \texttt{order\_labs}, \texttt{order\_imaging} & Weighted action dictionary \\
+        Argument & Which imaging order is most appropriate next? & \texttt{CT head}, \texttt{MRI brain}, \texttt{CT abdomen}, \texttt{XRAY abdomen}, \texttt{CT chest}, \texttt{US pelvis} & Weighted argument dictionary \\
+        Discharge & Should the patient be discharged within 6h? & \texttt{Yes}, \texttt{No} & Weighted binary dictionary \\
         \bottomrule
     \end{tabular*}}
 \end{table}
@@ -200,7 +200,7 @@ The agentic decision task uses three question templates generated from the curre
 {"reason": "The patient has abnormal lab results...", "answer": ["order_labs"]}
 \end{promptblock}
 
-For T3-A questions, candidate answers are collected from future events in a 24-hour window after the current timestamp and weighted by temporal decay. T3-D instead compares the current timestamp with the discharge time using a six-hour horizon.
+For Next Action and Argument questions, candidate answers are collected from future events in a 24-hour window after the current timestamp and weighted by temporal decay. T3-D instead compares the current timestamp with the discharge time using a six-hour horizon.
 
 \section*{A4 Agent Configuration}
 \addcontentsline{toc}{section}{A4 Agent Configuration}
@@ -233,7 +233,7 @@ Each evaluation condition is defined by two axes: the historical memory source, 
 
 This section provides concrete qualitative cases that explain why aggregate accuracy changes are small even when memory configuration changes individual decisions. Each case is centered on the original interaction-style JSON. Explanatory text is included only to summarize the behavioral pattern illustrated by the JSON.
 
-A read-only inspection of the analysis artifacts showed that event and note memories often change model outputs even when the overall benchmark average remains close. In the shared 2,202-question overlap, event--note prediction changes occurred in 662 questions for the long-context agent (30.06\%), 807 questions for Mem0 (36.65\%), and 740 questions for RAG (33.61\%). The cases below therefore focus on how those changes arise rather than treating the mean score as the only evidence.
+A inspection of the analysis artifacts showed that event and note memories often change model outputs even when the overall benchmark average remains close. In the shared 2,202-question overlap, event--note prediction changes occurred in 662 questions for the long-context agent (30.06\%), 807 questions for Mem0 (36.65\%), and 740 questions for RAG (33.61\%). The cases below therefore focus on how those changes arise rather than treating the mean score as the only evidence.
 
 \paragraph{Case 1: Retrieval helps when local evidence reinforces the current trajectory.}
 \begin{promptblock}{Original Interaction JSON: P000001-V12-T0002-T3-N-0}
